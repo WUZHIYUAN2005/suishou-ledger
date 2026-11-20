@@ -1,5 +1,5 @@
 /* 静态页面离线缓存。账目始终仅存于设备本地。 */
-const CACHE_NAME='suishou-ledger-static-v3';
+const CACHE_NAME='suishou-ledger-static-v4';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-180.png','./icon-512.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));

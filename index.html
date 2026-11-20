@@ -214,6 +214,32 @@
       .primary {border-radius:999px;}
     }
     @media (prefers-reduced-motion: reduce) {button:active {transform:none;}}
+
+    .extras-jump{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--glass-border);background:linear-gradient(140deg,var(--glass-top),transparent 85%),var(--glass-bg);-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);border-radius:19px;padding:13px 17px;margin:-5px 0 20px;box-shadow:var(--glass-shadow);color:var(--ink);min-height:65px}
+    .extras-jump-icon{display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:14px;background:var(--accentsoft);color:var(--accent);font-size:22px}
+    .extras-jump-text{flex:1;min-width:0}.extras-jump-text strong{display:block;font-size:14px;font-weight:800}.extras-jump-text small{display:block;font-size:11px;color:var(--muted);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.extras-jump-arrow{font-size:27px;color:var(--muted)}
+    #extras{scroll-margin-top:18px}
+    /* Stored-value cards and subscriptions: responsive, matching the glass theme. */
+    .extras{margin-top:26px}.extras-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:15px}
+    .extras-heading h2{font-size:22px;letter-spacing:-.65px;margin:0 0 5px}.extras-heading p{color:var(--muted);font-size:12px;margin:0;line-height:1.6}
+    .extras-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+    .extras-panel{min-height:220px}.extras-panel .panel-heading{margin-bottom:10px}.extras-summary{border-radius:16px;padding:14px 16px;background:var(--subtle-bg);border:1px solid var(--glass-border);margin-bottom:11px}
+    .extras-summary .label-mini{color:var(--muted);font-size:11px;display:block;margin-bottom:4px}.extras-summary strong{font-size:16px;letter-spacing:-.25px;line-height:1.5;overflow-wrap:anywhere}
+    .feature-note{color:var(--muted);font-size:11px;line-height:1.7;margin:13px 0 0}
+    .feature-entry{padding:14px 0;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+    .feature-entry:last-child{border-bottom:0}.feature-entry .feature-info{min-width:0;flex:1}.feature-name{display:block;font-size:14px;font-weight:750;line-height:1.5;overflow-wrap:anywhere}
+    .feature-details{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.55;overflow-wrap:anywhere}.feature-value{font-size:16px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .feature-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.mini-btn{border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--control-ink);border-radius:12px;padding:8px 11px;min-height:36px;font-weight:700;font-size:12px;box-shadow:inset 0 1px 0 var(--glass-top);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+    .mini-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.feature-add{width:100%;margin-top:12px;text-align:center;min-height:45px}
+    .feature-empty{font-size:12px;color:var(--muted);line-height:1.8;text-align:center;padding:22px 12px}
+    .due-label{font-size:11px;font-weight:750;border-radius:9px;padding:3px 7px;background:var(--accentsoft);color:var(--ink);display:inline-block;margin-top:5px}
+    .due-label.soon{background:rgba(248,182,75,.18);color:#bf7a16}.due-label.overdue{background:rgba(244,113,121,.15);color:var(--red)}
+    .form-grid-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.form-grid-two .field{min-width:0}
+    .check-row{display:flex;gap:10px;align-items:center;padding:8px 1px;font-size:13px;color:var(--control-ink)}.check-row input{width:20px;height:20px;accent-color:#6379e8;flex:none}
+    .pay-card-tip{padding:10px 12px;border-radius:11px;background:var(--subtle-bg);font-size:12px;color:var(--muted);line-height:1.6;margin-top:8px}
+    @media(max-width:830px){.extras-grid{grid-template-columns:1fr;gap:16px}}
+    @media(max-width:420px){.extras-heading h2{font-size:20px}.form-grid-two{gap:9px}.feature-value{font-size:15px}}
+    :root[data-theme="dark"] .due-label.soon{color:#ffd191}
   </style>
 </head>
 <body>
@@ -230,6 +256,9 @@
       <div class="summary-card"><div class="card-label"><span class="pill-dot" style="color:#31b990"></span>收入</div><div class="card-value positive" id="incomeSum">¥0.00</div><div class="card-foot">所选时间范围</div></div>
       <div class="summary-card"><div class="card-label"><span class="pill-dot" style="color:#ec818b"></span>支出</div><div class="card-value negative" id="expenseSum">¥0.00</div><div class="card-foot">所选时间范围</div></div>
     </section>
+    <button type="button" class="extras-jump" id="extrasJumpBtn" aria-label="跳转到储值卡与会员管理">
+      <span class="extras-jump-icon" aria-hidden="true">✦</span><span class="extras-jump-text"><strong>储值卡与会员</strong><small id="extrasJumpSummary">星礼卡余额、会员续费与到期时间</small></span><span class="extras-jump-arrow" aria-hidden="true">›</span>
+    </button>
     <div class="columns">
       <section class="panel" aria-labelledby="listHeading">
         <div class="panel-heading"><div class="panel-title" id="listHeading">账单明细</div><span class="count" id="entryCount">共 0 笔</span></div>
@@ -246,6 +275,26 @@
         <p class="stat-note">统计按所选月份及币种分别计算；不同币种不会直接相加，也不会自动换汇。</p>
       </section>
     </div>
+
+    <section class="extras" id="extras" aria-labelledby="extrasTitle">
+      <div class="extras-heading"><div><h2 id="extrasTitle">储值卡与会员</h2><p>预付款不重复计入支出，会员到期日一眼看清</p></div></div>
+      <div class="extras-grid">
+        <section class="panel extras-panel" aria-labelledby="cardsTitle">
+          <div class="panel-heading"><span class="panel-title" id="cardsTitle">储值卡余额</span><span class="count" id="cardsCount">0 张</span></div>
+          <div class="extras-summary"><span class="label-mini">各币种余额（不跨币种合计）</span><strong id="cardsTotals">尚无储值卡</strong></div>
+          <div id="cardsList" aria-live="polite"></div>
+          <button type="button" class="outline feature-add" id="addCardBtn">＋ 添加储值卡</button>
+          <p class="feature-note">例如星礼卡：充值只增加储值卡余额；使用它付款时会扣卡内余额并记录一笔消费。添加已有卡时请输入当前实际余额，不会追扣旧账。</p>
+        </section>
+        <section class="panel extras-panel" aria-labelledby="membersTitle">
+          <div class="panel-heading"><span class="panel-title" id="membersTitle">平台会员与订阅</span><span class="count" id="membersCount">0 项</span></div>
+          <div class="extras-summary"><span class="label-mini">有效订阅预计年费用（按币种分别统计）</span><strong id="membersTotals">尚无订阅</strong><div class="feature-details" id="membersMonthly">填写会员后显示月均费用</div></div>
+          <div id="membersList" aria-live="polite"></div>
+          <button type="button" class="outline feature-add" id="addMemberBtn">＋ 添加会员 / 订阅</button>
+          <p class="feature-note">可记录平台、单次费用、续费周期、到期／下次扣费日期和自动续费状态。到期提醒仅在打开网页时显示；会员资料本身不自动生成账单，避免重复记账。</p>
+        </section>
+      </div>
+    </section>
     <p class="footer">数据只保存在当前网页的本地存储中，不需要账号，也不会主动上传账目。<br>更换浏览器、清除网站数据或删除主屏幕网页前，请先在「数据管理」中导出备份。</p>
   </main>
   <nav class="dock" aria-label="快速操作"><span class="dock-tip">下一笔，从这里开始</span><button type="button" class="primary" id="addBtn"><span class="plus">＋</span>记一笔</button></nav>
@@ -256,6 +305,7 @@
       <div class="field"><label class="label" for="amountInput">金额</label><div class="amount-line"><input class="input" id="amountInput" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" required><select id="currencyInput" class="select" aria-label="币种"></select></div></div>
       <div class="field"><span class="label">分类</span><div class="chips" id="categoryChips" role="group" aria-label="选择分类"></div></div>
       <div class="field"><label class="label" for="nameInput">名称 / 备注</label><input type="text" id="nameInput" class="input" maxlength="80" placeholder="例如：午餐、耳机、兼职工资" autocomplete="off"></div>
+      <div class="field hide" id="paymentMethodField"><label class="label" for="paymentCardInput">支付方式</label><select id="paymentCardInput" class="select" aria-label="选择普通支付或储值卡"><option value="">普通支付（银行卡 / 现金等）</option></select><div class="pay-card-tip" id="paymentHint">选择储值卡后，保存会自动扣余额，不需要再单独记卡内支出。</div></div>
       <div class="field"><label class="label" for="datetimeInput">记录时间</label><input type="datetime-local" id="datetimeInput" class="input" required></div>
       <button type="submit" class="primary save" id="saveEntryBtn">保存这笔账</button><button type="button" class="delete hide" id="deleteEntryBtn">删除这笔记录</button>
       <p class="form-note">默认使用人民币。未填写名称时，会自动使用分类名称；保存后可以点击账单修改。</p>
@@ -263,9 +313,38 @@
   </div></div>
   <div class="overlay" id="manageOverlay" aria-hidden="true"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="manageTitle"><div class="sheet-header"><h2 id="manageTitle">数据管理</h2><button type="button" class="close" id="closeManageBtn" aria-label="关闭">×</button></div>
     <div class="notice">账目只存储在当前网页的本地数据区。为防止手机清理缓存、网页被删除或更换设备造成丢失，建议定期导出备份。</div>
-    <section class="management-section"><h3>导出账本</h3><p>将全部收支记录导出为 JSON 文件，保存到 iPhone「文件」App。导出后不自动上传云端。</p><button type="button" class="outline" id="exportBtn">导出 JSON 备份</button></section>
-    <section class="management-section"><h3>导入账本</h3><p>从之前导出的 JSON 备份恢复记录。恢复会覆盖当前账本，操作前请先备份。</p><button type="button" class="outline" id="importBtn">选择备份文件</button><input id="importFile" type="file" accept=".json,application/json" class="hide"></section>
-    <section class="management-section"><h3>删除所有记录</h3><p>仅清空此网页的账本数据，无法撤销。不会影响你已经导出的备份文件。</p><button type="button" class="outline danger" id="clearBtn">清空账本</button></section>
+    <section class="management-section"><h3>导出账本</h3><p>将收支记录、储值卡余额及会员订阅一并导出为 JSON 文件，保存到 iPhone「文件」App。导出后不自动上传云端。</p><button type="button" class="outline" id="exportBtn">导出 JSON 备份</button></section>
+    <section class="management-section"><h3>导入账本</h3><p>从之前导出的 JSON 备份恢复记录。新版备份会覆盖账目、储值卡和会员；旧版备份只替换账目。恢复前请先备份。</p><button type="button" class="outline" id="importBtn">选择备份文件</button><input id="importFile" type="file" accept=".json,application/json" class="hide"></section>
+    <section class="management-section"><h3>删除所有记录</h3><p>仅清空此网页的收支明细，不清空储值卡余额或会员资料。不会影响你已经导出的备份文件。</p><button type="button" class="outline danger" id="clearBtn">清空账本</button></section>
+  </div></div>
+
+  <div class="overlay" id="cardOverlay" aria-hidden="true"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="cardSheetTitle">
+    <div class="sheet-header"><h2 id="cardSheetTitle">添加储值卡</h2><button type="button" class="close" id="closeCardBtn" aria-label="关闭">×</button></div>
+    <form id="cardForm">
+      <div class="field"><label class="label" for="cardNameInput">卡片名称</label><input class="input" id="cardNameInput" type="text" maxlength="40" placeholder="例如：星巴克星礼卡" required></div>
+      <div class="form-grid-two"><div class="field"><label class="label" for="cardCurrencyInput">币种</label><select class="select" id="cardCurrencyInput"></select></div><div class="field"><label class="label" for="cardBalanceInput">当前余额</label><input class="input" id="cardBalanceInput" inputmode="decimal" type="text" placeholder="0.00" required></div></div>
+      <p class="form-note">请输入现在的实际余额；旧账不会自动扣除。修改余额是人工校准，不会生成收入或支出。</p>
+      <button type="submit" class="primary save">保存储值卡</button><button type="button" class="delete hide" id="deleteCardBtn">删除此卡</button>
+    </form>
+  </div></div>
+  <div class="overlay" id="topupOverlay" aria-hidden="true"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="topupTitle">
+    <div class="sheet-header"><h2 id="topupTitle">储值卡充值</h2><button type="button" class="close" id="closeTopupBtn" aria-label="关闭">×</button></div>
+    <form id="topupForm"><p class="notice" id="topupNotice"></p><div class="field" style="margin-top:17px"><label class="label" for="topupAmountInput">充值金额</label><input class="input" id="topupAmountInput" inputmode="decimal" type="text" placeholder="例如 80.00" required></div>
+      <button type="submit" class="primary save">确认充值</button><p class="form-note">充值只是将现金转为储值余额，账本支出不增加。实际用卡消费时再记支出。</p>
+    </form>
+  </div></div>
+  <div class="overlay" id="memberOverlay" aria-hidden="true"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="memberSheetTitle">
+    <div class="sheet-header"><h2 id="memberSheetTitle">添加会员</h2><button type="button" class="close" id="closeMemberBtn" aria-label="关闭">×</button></div>
+    <form id="memberForm">
+      <div class="field"><label class="label" for="memberNameInput">会员 / 平台名称</label><input id="memberNameInput" class="input" type="text" maxlength="50" required placeholder="例如：Spotify、iCloud、视频会员"></div>
+      <div class="form-grid-two"><div class="field"><label class="label" for="memberAmountInput">每周期费用</label><input id="memberAmountInput" class="input" type="text" inputmode="decimal" placeholder="0.00" required></div><div class="field"><label class="label" for="memberCurrencyInput">币种</label><select id="memberCurrencyInput" class="select"></select></div></div>
+      <div class="form-grid-two"><div class="field"><label class="label" for="memberCycleInput">收费周期</label><select id="memberCycleInput" class="select"><option value="month">每月</option><option value="quarter">每季度</option><option value="year">每年</option><option value="once">一次性 / 非自动续费</option></select></div><div class="field"><label class="label" for="memberDateInput">下次扣费 / 到期日期</label><input id="memberDateInput" class="input" type="date" required></div></div>
+      <label class="check-row"><input type="checkbox" id="memberActiveInput" checked> 当前正在使用</label>
+      <label class="check-row"><input type="checkbox" id="memberRenewInput"> 已开启自动续费</label>
+      <div class="field"><label class="label" for="memberNoteInput">备注（选填）</label><input id="memberNoteInput" class="input" type="text" maxlength="100" placeholder="例如：学生优惠、家庭组"></div>
+      <button type="submit" class="primary save">保存会员</button><button type="button" id="deleteMemberBtn" class="delete hide">删除这项会员</button>
+      <p class="form-note">会统计订阅费用和到期时间，但不会自动扣款、生成支出或推送系统通知。</p>
+    </form>
   </div></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
@@ -273,6 +352,7 @@
   'use strict';
   const DB_KEY = 'suishou-ledger.records.v1';
   const PREF_KEY = 'suishou-ledger.prefs.v1';
+  const EXTRAS_KEY = 'suishou-ledger.extras.v1';
   const CURRENCIES = [
     {code:'CNY',name:'人民币',digits:2},{code:'USD',name:'美元',digits:2},{code:'EUR',name:'欧元',digits:2},
     {code:'HKD',name:'港币',digits:2},{code:'JPY',name:'日元',digits:0},{code:'GBP',name:'英镑',digits:2},
@@ -362,7 +442,8 @@
       if(typeof r.category!=='string'||!CATEGORY[r.type].some(c=>c.name===r.category))throw new Error('备份中的分类不正确');
       if(typeof r.name!=='string'||r.name.length>80)throw new Error('备份中的名称不正确');
       if(typeof r.occurredAt!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(r.occurredAt)||Number.isNaN(new Date(r.occurredAt).getTime()))throw new Error('备份中的日期不正确');
-      return {id:r.id,type:r.type,category:r.category,name:r.name,currency:r.currency,amountMinor:r.amountMinor,occurredAt:r.occurredAt,createdAt:typeof r.createdAt==='string'?r.createdAt:new Date().toISOString()};
+      if(r.paymentCardId!==undefined&&(typeof r.paymentCardId!=='string'||r.paymentCardId.length>100))throw new Error('备份中的储值卡引用不正确');
+      return {id:r.id,type:r.type,category:r.category,name:r.name,currency:r.currency,amountMinor:r.amountMinor,occurredAt:r.occurredAt,createdAt:typeof r.createdAt==='string'?r.createdAt:new Date().toISOString(),...(r.type==='expense'&&r.paymentCardId?{paymentCardId:r.paymentCardId}:{})};
     });
   }
   function readLocal(key,fallback){try{const s=localStorage.getItem(key);return s===null?fallback:JSON.parse(s)}catch(e){console.warn('读取失败',e);return fallback;}}
@@ -374,7 +455,165 @@
   const savedPrefs=readLocal(PREF_KEY,{});
   let loaded=[];
   try{loaded=validateRecords(readLocal(DB_KEY,[]))}catch(e){console.error('数据校验失败',e);window.alert('本地账本数据存在异常。为了避免覆盖原始数据，暂时停止保存，请先检查备份。');}
-  const state={records:loaded,month:localMonth(),allDates:false,statsCurrency:CURRENCIES.some(c=>c.code===savedPrefs.statsCurrency)?savedPrefs.statsCurrency:'CNY',listType:'all',category:'all',listCurrency:'all',sort:'newest',search:'',statsType:'expense',formType:'expense',formCategory:CATEGORY.expense[0].name,editingId:null};
+  const storedExtras=readLocal(EXTRAS_KEY,{cards:[],memberships:[]});
+  const state={records:loaded,cards:[],memberships:[],month:localMonth(),allDates:false,statsCurrency:CURRENCIES.some(c=>c.code===savedPrefs.statsCurrency)?savedPrefs.statsCurrency:'CNY',listType:'all',category:'all',listCurrency:'all',sort:'newest',search:'',statsType:'expense',formType:'expense',formCategory:CATEGORY.expense[0].name,editingId:null};
+
+  function validDate(value){
+    if(typeof value!=='string'||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value))return false;
+    const [y,m,d]=value.split('-').map(Number);
+    const parsed=new Date(y,m-1,d);
+    return parsed.getFullYear()===y&&parsed.getMonth()===m-1&&parsed.getDate()===d;
+  }
+  function validateCards(input){
+    if(!Array.isArray(input)||input.length>100)throw new Error('储值卡数量不正确');
+    const ids=new Set();return input.map(c=>{
+      if(!c||typeof c!=='object'||typeof c.id!=='string'||c.id.length>100||ids.has(c.id))throw new Error('储值卡标识不正确');ids.add(c.id);
+      if(typeof c.name!=='string'||!c.name.trim()||c.name.length>40)throw new Error('储值卡名称不正确');
+      if(!CURRENCIES.some(x=>x.code===c.currency))throw new Error('储值卡币种不正确');
+      if(!Number.isSafeInteger(c.balanceMinor)||c.balanceMinor<0||c.balanceMinor>1000000000000)throw new Error('储值卡余额不正确');
+      return {id:c.id,name:c.name.trim(),currency:c.currency,balanceMinor:c.balanceMinor};
+    });
+  }
+  function validateMemberships(input){
+    if(!Array.isArray(input)||input.length>500)throw new Error('订阅数量不正确');
+    const ids=new Set();return input.map(m=>{
+      if(!m||typeof m!=='object'||typeof m.id!=='string'||m.id.length>100||ids.has(m.id))throw new Error('会员标识不正确');ids.add(m.id);
+      if(typeof m.name!=='string'||!m.name.trim()||m.name.length>50)throw new Error('会员平台名称不正确');
+      if(!CURRENCIES.some(c=>c.code===m.currency))throw new Error('会员币种不正确');
+      if(!Number.isSafeInteger(m.amountMinor)||m.amountMinor<=0||m.amountMinor>1000000000000)throw new Error('会员费用不正确');
+      if(!['month','quarter','year','once'].includes(m.cycle)||!validDate(m.nextDate))throw new Error('会员周期或日期不正确');
+      if(typeof m.note!=='string'||m.note.length>100)throw new Error('会员备注不正确');
+      if(typeof m.active!=='boolean'||typeof m.autoRenew!=='boolean')throw new Error('会员状态不正确');
+      return {id:m.id,name:m.name.trim(),currency:m.currency,amountMinor:m.amountMinor,cycle:m.cycle,nextDate:m.nextDate,active:m.active,autoRenew:m.autoRenew,note:m.note};
+    });
+  }
+  try {state.cards=validateCards(storedExtras?.cards||[]);state.memberships=validateMemberships(storedExtras?.memberships||[]);}
+  catch(e){console.error('附加数据校验失败',e);alert('储值卡或会员数据存在异常。请先备份网页数据，避免覆盖异常记录。');}
+  function parseNonnegativeMoney(value,currency){
+    const digits=moneyDef(currency).digits,s=String(value).trim();
+    if(!/^\d+(?:\.\d+)?$/.test(s))return null;
+    const [whole,frac='']=s.split('.');
+    if(frac.length>digits)return null;
+    const amount=Number(whole)*10**digits+Number(frac.padEnd(digits,'0'));
+    return Number.isSafeInteger(amount)&&amount>=0&&amount<=1000000000000?amount:null;
+  }
+  function saveBundle(){
+    let oldRecords=null,oldExtras=null;
+    try{
+      oldRecords=localStorage.getItem(DB_KEY);oldExtras=localStorage.getItem(EXTRAS_KEY);
+      localStorage.setItem(DB_KEY,JSON.stringify(state.records));
+      localStorage.setItem(EXTRAS_KEY,JSON.stringify({cards:state.cards,memberships:state.memberships}));
+      return true;
+    }catch(e){
+      try{if(oldRecords===null)localStorage.removeItem(DB_KEY);else localStorage.setItem(DB_KEY,oldRecords);
+        if(oldExtras===null)localStorage.removeItem(EXTRAS_KEY);else localStorage.setItem(EXTRAS_KEY,oldExtras);}catch(_){}
+      alert('无法保存本地数据，请检查 iPhone 存储空间或浏览器模式。');return false;
+    }
+  }
+  function renderExtras(){
+    const todayKey=localDatetime().slice(0,10);
+    const soonCount=state.memberships.filter(m=>m.active&&m.nextDate>=todayKey&&Math.round((new Date(m.nextDate+'T12:00')-new Date(todayKey+'T12:00'))/86400000)<=7).length;
+    $('extrasJumpSummary').textContent=`${state.cards.length} 张储值卡 · ${state.memberships.length} 项会员${soonCount?` · ${soonCount} 项即将到期`:''}`;
+    $('cardsCount').textContent=`${state.cards.length} 张`;
+    const totals=new Map();for(const c of state.cards)totals.set(c.currency,(totals.get(c.currency)||0)+c.balanceMinor);
+    $('cardsTotals').textContent=[...totals].map(([code,v])=>money(v,code)).join(' · ')||'尚无储值卡';
+    $('cardsList').innerHTML=state.cards.length?state.cards.map(c=>`<div class="feature-entry"><div class="feature-info"><strong class="feature-name">${escapeHTML(c.name)}</strong><div class="feature-details">${escapeHTML(moneyDef(c.currency).name)} · ${escapeHTML(c.currency)}</div><div class="feature-actions"><button class="mini-btn" type="button" data-card-action="pay" data-card-id="${escapeHTML(c.id)}">用卡记账</button><button class="mini-btn" type="button" data-card-action="topup" data-card-id="${escapeHTML(c.id)}">充值</button><button class="mini-btn" type="button" data-card-action="edit" data-card-id="${escapeHTML(c.id)}">调整</button></div></div><div class="feature-value">${escapeHTML(money(c.balanceMinor,c.currency))}</div></div>`).join(''):'<div class="feature-empty">还没有储值卡。可以先添加星礼卡、交通卡等。</div>';
+    const yearly=new Map();let activeCount=0;
+    for(const m of state.memberships){if(!m.active||m.cycle==='once')continue;activeCount++;const mult={month:12,quarter:4,year:1}[m.cycle];yearly.set(m.currency,(yearly.get(m.currency)||0)+m.amountMinor*mult);}
+    $('membersTotals').textContent=[...yearly].map(([c,v])=>money(v,c)).join(' · ')||'暂无周期性订阅';
+    $('membersMonthly').textContent=[...yearly].map(([c,v])=>`月均约 ${money(v/12,c)}`).join(' · ')||(state.memberships.length?'一次性会员不计入续费预测':'填写会员后显示月均费用');
+    $('membersCount').textContent=`${state.memberships.length} 项`;
+    const today=localDatetime().slice(0,10);
+    const dayDiff=(date)=>Math.round((new Date(date+'T12:00')-new Date(today+'T12:00'))/86400000);
+    const cycleNames={month:'每月',quarter:'每季度',year:'每年',once:'一次性'};
+    const ordered=[...state.memberships].sort((a,b)=>(a.active===b.active?0:a.active?-1:1)||a.nextDate.localeCompare(b.nextDate));
+    $('membersList').innerHTML=ordered.length?ordered.map(m=>{
+      const days=dayDiff(m.nextDate);
+      let status=m.active?(days<0?(m.autoRenew?'扣费日期已过 · 请核对':'已到期'):(days===0?'今天到期／扣费':days<=7?`${days} 天后到期／扣费`:days<=30?`${days} 天后到期／扣费`:'按期使用中')):'已停用';
+      const cls=m.active&&days<0?'overdue':m.active&&days<=7?'soon':'';
+      return `<div class="feature-entry"><div class="feature-info"><strong class="feature-name">${escapeHTML(m.name)}</strong><div class="feature-details">${escapeHTML(cycleNames[m.cycle])} · ${escapeHTML(m.nextDate)} · ${m.autoRenew?'自动续费':'手动续费'}${m.note?` · ${escapeHTML(m.note)}`:''}</div><span class="due-label ${cls}">${escapeHTML(status)}</span><div class="feature-actions"><button type="button" class="mini-btn" data-member-id="${escapeHTML(m.id)}">编辑会员</button></div></div><div class="feature-value">${escapeHTML(money(m.amountMinor,m.currency))}</div></div>`;
+    }).join(''):'<div class="feature-empty">还没有订阅。可添加 GPT、Spotify、云存储或视频会员。</div>';
+    $('cardsList').querySelectorAll('[data-card-action]').forEach(button=>button.addEventListener('click',()=>{
+      const card=state.cards.find(c=>c.id===button.dataset.cardId);if(!card)return;
+      if(button.dataset.cardAction==='pay'){openEntry(null,card.id);$('nameInput').placeholder=`例如：${card.name}饮品`}
+      else if(button.dataset.cardAction==='topup')openTopup(card.id);
+      else openCard(card.id);
+    }));
+    $('membersList').querySelectorAll('[data-member-id]').forEach(button=>button.addEventListener('click',()=>openMember(button.dataset.memberId)));
+  }
+  let editingCardId=null,topupCardId=null,editingMemberId=null;
+  function openCard(id=null){
+    const c=id?state.cards.find(c=>c.id===id):null;editingCardId=c?.id||null;
+    $('cardSheetTitle').textContent=c?'修改储值卡':'添加储值卡';
+    $('cardNameInput').value=c?.name||'';
+    $('cardCurrencyInput').innerHTML=allCurrenciesOptions();$('cardCurrencyInput').value=c?.currency||'CNY';
+    $('cardCurrencyInput').disabled=!!c;
+    $('cardBalanceInput').value=c?(c.balanceMinor/(10**moneyDef(c.currency).digits)).toFixed(moneyDef(c.currency).digits):'0';
+    $('deleteCardBtn').classList.toggle('hide',!c);openOverlay($('cardOverlay'));
+  }
+  function openTopup(id){
+    const c=state.cards.find(c=>c.id===id);if(!c)return;topupCardId=c.id;
+    $('topupTitle').textContent=`充值 · ${c.name}`;
+    $('topupNotice').textContent=`现有余额 ${money(c.balanceMinor,c.currency)}，充值金额会增加余额，但不会新增账本支出。`;
+    $('topupAmountInput').value='';openOverlay($('topupOverlay'));
+  }
+  function openMember(id=null){
+    const m=id?state.memberships.find(m=>m.id===id):null;editingMemberId=m?.id||null;
+    $('memberSheetTitle').textContent=m?'编辑会员':'添加会员';$('memberNameInput').value=m?.name||'';
+    $('memberAmountInput').value=m?(m.amountMinor/(10**moneyDef(m.currency).digits)).toFixed(moneyDef(m.currency).digits):'';
+    $('memberCurrencyInput').innerHTML=allCurrenciesOptions();$('memberCurrencyInput').value=m?.currency||'CNY';
+    $('memberCycleInput').value=m?.cycle||'month';$('memberDateInput').value=m?.nextDate||localDatetime().slice(0,10);
+    $('memberActiveInput').checked=m?m.active:true;$('memberRenewInput').checked=m?m.autoRenew:false;
+    $('memberNoteInput').value=m?.note||'';$('deleteMemberBtn').classList.toggle('hide',!m);
+    openOverlay($('memberOverlay'));
+  }
+  $('extrasJumpBtn').addEventListener('click',()=>$('extras').scrollIntoView({behavior:'smooth',block:'start'}));
+  $('addCardBtn').addEventListener('click',()=>openCard());$('addMemberBtn').addEventListener('click',()=>openMember());
+  for(const [overlay,button] of [['cardOverlay','closeCardBtn'],['topupOverlay','closeTopupBtn'],['memberOverlay','closeMemberBtn']]){
+    $(button).addEventListener('click',()=>closeOverlay($(overlay)));
+    $(overlay).addEventListener('click',e=>{if(e.target===$(overlay))closeOverlay($(overlay))});
+  }
+  $('cardForm').addEventListener('submit',e=>{
+    e.preventDefault();const old=state.cards.find(c=>c.id===editingCardId),currency=old?.currency||$('cardCurrencyInput').value;
+    const balanceMinor=parseNonnegativeMoney($('cardBalanceInput').value,currency),name=$('cardNameInput').value.trim();
+    if(!name||balanceMinor===null){alert('请输入有效的名称和非负余额');return;}
+    const item={id:old?.id||makeId(),name:name.slice(0,40),currency,balanceMinor};
+    const prior=state.cards;state.cards=old?state.cards.map(c=>c.id===old.id?item:c):[...state.cards,item];
+    if(!saveBundle()){state.cards=prior;return;}closeOverlay($('cardOverlay'));renderExtras();toast('储值卡已保存');
+  });
+  $('deleteCardBtn').addEventListener('click',()=>{
+    const c=state.cards.find(c=>c.id===editingCardId);if(!c)return;
+    if(!confirm(`确定移除「${c.name}」吗？关联的历史账单会保留，但不再关联此卡。`))return;
+    const prior=state.cards,priorRecords=state.records;
+    state.cards=state.cards.filter(x=>x.id!==c.id);
+    state.records=state.records.map(r=>r.paymentCardId===c.id?(({paymentCardId,...rest})=>rest)(r):r);
+    if(!saveBundle()){state.records=priorRecords;state.cards=prior;return;}
+    closeOverlay($('cardOverlay'));renderExtras();renderAll();toast('已移除储值卡');
+  });
+  $('topupForm').addEventListener('submit',e=>{
+    e.preventDefault();const c=state.cards.find(x=>x.id===topupCardId);if(!c)return;
+    const amount=parseMoney($('topupAmountInput').value,c.currency);
+    if(amount===null||c.balanceMinor+amount>1000000000000){alert('请输入有效的充值金额');return;}
+    const prior=state.cards;state.cards=state.cards.map(x=>x.id===c.id?{...x,balanceMinor:x.balanceMinor+amount}:x);
+    if(!saveBundle()){state.cards=prior;return;}
+    closeOverlay($('topupOverlay'));renderExtras();toast('充值已记录（未计为支出）');
+  });
+  $('memberForm').addEventListener('submit',e=>{
+    e.preventDefault();const currency=$('memberCurrencyInput').value,amountMinor=parseMoney($('memberAmountInput').value,currency);
+    const name=$('memberNameInput').value.trim(),nextDate=$('memberDateInput').value;
+    if(!name||amountMinor===null||!validDate(nextDate)){alert('请输入会员名称、有效费用和日期');return;}
+    const old=state.memberships.find(m=>m.id===editingMemberId);
+    const member={id:old?.id||makeId(),name:name.slice(0,50),currency,amountMinor,cycle:$('memberCycleInput').value,nextDate,active:$('memberActiveInput').checked,autoRenew:$('memberRenewInput').checked,note:$('memberNoteInput').value.trim().slice(0,100)};
+    const prior=state.memberships;state.memberships=old?state.memberships.map(m=>m.id===old.id?member:m):[...state.memberships,member];
+    if(!saveBundle()){state.memberships=prior;return;}
+    closeOverlay($('memberOverlay'));renderExtras();toast('会员信息已保存');
+  });
+  $('deleteMemberBtn').addEventListener('click',()=>{
+    if(!editingMemberId||!confirm('确定删除这项会员记录吗？历史账目不会变化。'))return;
+    const old=state.memberships;state.memberships=old.filter(m=>m.id!==editingMemberId);
+    if(!saveBundle()){state.memberships=old;return;}
+    closeOverlay($('memberOverlay'));renderExtras();toast('会员已删除');
+  });
   const allCurrenciesOptions = (withAll=false) => (withAll?'<option value="all">全部币种</option>':'')+CURRENCIES.map(c=>`<option value="${c.code}">${c.name} · ${c.code}</option>`).join('');
   $('statsCurrency').innerHTML=allCurrenciesOptions();$('statsCurrency').value=state.statsCurrency;
   $('currencyInput').innerHTML=allCurrenciesOptions();$('listCurrencyFilter').innerHTML=allCurrenciesOptions(true);$('monthInput').value=state.month;
@@ -440,16 +679,26 @@
     $('categoryChips').querySelectorAll('.chip').forEach(el=>el.addEventListener('click',()=>{state.formCategory=el.dataset.category;renderFormCategories()}));
     $('formExpense').classList.toggle('active',state.formType==='expense');$('formIncome').classList.toggle('active',state.formType==='income');
   }
-  function setFormType(type,keepCategory=false){state.formType=type;if(!keepCategory||!CATEGORY[type].some(c=>c.name===state.formCategory))state.formCategory=CATEGORY[type][0].name;renderFormCategories()}
-  function openEntry(id=null){
+  function setFormType(type,keepCategory=false){state.formType=type;if(!keepCategory||!CATEGORY[type].some(c=>c.name===state.formCategory))state.formCategory=CATEGORY[type][0].name;renderFormCategories();refreshPaymentChoices($('paymentCardInput').value)}
+  function openEntry(id=null,cardId=null){
     const r=id?state.records.find(x=>x.id===id):null;
     state.editingId=r?.id||null;
     $('sheetTitle').textContent=r?'编辑账目':'记一笔';$('saveEntryBtn').textContent=r?'保存修改':'保存这笔账';$('deleteEntryBtn').classList.toggle('hide',!r);
     setFormType(r?.type||'expense');if(r)setFormType(r.type,true),state.formCategory=r.category,renderFormCategories();
     $('amountInput').value=r?(r.amountMinor/(10**moneyDef(r.currency).digits)).toFixed(moneyDef(r.currency).digits):'';
-    $('currencyInput').value=r?.currency||'CNY';$('nameInput').value=r?.name||'';$('datetimeInput').value=r?.occurredAt||localDatetime();
+    $('currencyInput').value=r?.currency||(cardId?state.cards.find(c=>c.id===cardId)?.currency:'CNY')||'CNY';$('nameInput').value=r?.name||'';$('datetimeInput').value=r?.occurredAt||localDatetime();
+    refreshPaymentChoices(r?.paymentCardId||cardId||'');
     openOverlay($('entryOverlay'));setTimeout(()=>$('amountInput').focus(),100);
   }
+  function refreshPaymentChoices(selectedId=''){
+    const el=$('paymentCardInput'),current=selectedId||el.value;
+    const cards=state.cards.filter(c=>c.currency===$('currencyInput').value);
+    el.innerHTML='<option value="">普通支付（银行卡 / 现金等）</option>'+cards.map(c=>`<option value="${escapeHTML(c.id)}">${escapeHTML(c.name)} · ${escapeHTML(money(c.balanceMinor,c.currency))}</option>`).join('');
+    el.value=cards.some(c=>c.id===current)?current:'';
+    $('paymentMethodField').classList.toggle('hide',state.formType!=='expense');
+    $('paymentHint').textContent=el.value?'储值卡消费会自动扣余额并记入支出。编辑 / 删除这笔账也会同步调整余额。':'普通支付不影响储值卡余额；如使用星礼卡，请从上方选择该卡。';
+  }
+  $('paymentCardInput').addEventListener('change',()=>refreshPaymentChoices($('paymentCardInput').value));
   function syncAmountInput(){const digits=moneyDef($('currencyInput').value).digits;$('amountInput').placeholder=digits===0?'0':'0.00'}
   $('entryForm').addEventListener('submit',(e)=>{
     e.preventDefault();const currency=$('currencyInput').value;
@@ -458,15 +707,34 @@
     const occurredAt=$('datetimeInput').value;
     if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(occurredAt)||Number.isNaN(new Date(occurredAt).getTime())){window.alert('请选择有效日期');return;}
     const old=state.records.find(r=>r.id===state.editingId);
-    const entry={id:old?.id||makeId(),type:state.formType,category:state.formCategory,name:$('nameInput').value.trim().slice(0,80)||state.formCategory,amountMinor,currency,occurredAt,createdAt:old?.createdAt||new Date().toISOString()};
-    const prior=state.records.slice();if(old)state.records=state.records.map(r=>r.id===old.id?entry:r);else state.records.unshift(entry);
-    if(!saveRecords()){state.records=prior;return}
-    closeOverlay($('entryOverlay'));renderAll();toast(old?'修改已保存':'已记下这笔账');
+    const paymentCardId=state.formType==='expense'?$('paymentCardInput').value:'';
+    if(paymentCardId&&!state.cards.some(c=>c.id===paymentCardId&&c.currency===currency)){alert('所选储值卡与金额币种不一致，请重新选择');return;}
+    const entry={id:old?.id||makeId(),type:state.formType,category:state.formCategory,name:$('nameInput').value.trim().slice(0,80)||state.formCategory,amountMinor,currency,occurredAt,createdAt:old?.createdAt||new Date().toISOString(),...(paymentCardId?{paymentCardId}:{})};
+    const priorRecords=state.records,priorCards=state.cards;
+    const nextCards=state.cards.map(c=>({...c}));
+    if(old?.paymentCardId&&old.type==='expense'){
+      const oldCard=nextCards.find(c=>c.id===old.paymentCardId&&c.currency===old.currency);
+      if(oldCard)oldCard.balanceMinor+=old.amountMinor;
+    }
+    if(paymentCardId){
+      const card=nextCards.find(c=>c.id===paymentCardId);
+      if(card.balanceMinor<amountMinor){alert(`储值卡余额不足。当前可用：${money(card.balanceMinor,card.currency)}`);return;}
+      card.balanceMinor-=amountMinor;
+    }
+    state.cards=nextCards;
+    state.records=old?state.records.map(r=>r.id===old.id?entry:r):[entry,...state.records];
+    if(!saveBundle()){state.records=priorRecords;state.cards=priorCards;return}
+    closeOverlay($('entryOverlay'));renderAll();renderExtras();toast(old?'修改已保存':'已记下这笔账');
   });
-  $('deleteEntryBtn').addEventListener('click',()=>{if(!state.editingId)return;if(!confirm('确定删除这笔记录吗？'))return;const old=state.records.slice();state.records=state.records.filter(r=>r.id!==state.editingId);if(!saveRecords()){state.records=old;return}closeOverlay($('entryOverlay'));renderAll();toast('账目已删除')});
+  $('deleteEntryBtn').addEventListener('click',()=>{if(!state.editingId)return;if(!confirm('确定删除这笔记录吗？如使用储值卡付款，将把该金额加回卡内余额。'))return;
+    const r=state.records.find(x=>x.id===state.editingId);const priorRecords=state.records,priorCards=state.cards;
+    state.records=state.records.filter(x=>x.id!==state.editingId);
+    state.cards=state.cards.map(c=>c.id===r?.paymentCardId&&c.currency===r.currency?{...c,balanceMinor:c.balanceMinor+r.amountMinor}:c);
+    if(!saveBundle()){state.records=priorRecords;state.cards=priorCards;return}
+    closeOverlay($('entryOverlay'));renderAll();renderExtras();toast('账目已删除');});
   $('formExpense').addEventListener('click',()=>setFormType('expense'));
   $('formIncome').addEventListener('click',()=>setFormType('income'));
-  $('currencyInput').addEventListener('change',syncAmountInput);
+  $('currencyInput').addEventListener('change',()=>{syncAmountInput();refreshPaymentChoices();});
   $('addBtn').addEventListener('click',()=>openEntry());$('closeEntryBtn').addEventListener('click',()=>closeOverlay($('entryOverlay')));
   $('entryOverlay').addEventListener('click',e=>{if(e.target===$('entryOverlay'))closeOverlay($('entryOverlay'))});
   $('manageBtn').addEventListener('click',()=>openOverlay($('manageOverlay')));$('closeManageBtn').addEventListener('click',()=>closeOverlay($('manageOverlay')));
@@ -485,7 +753,7 @@
   $('incomeTab').addEventListener('click',()=>{state.statsType='income';renderStats()});
   $('statsCurrency').addEventListener('change',e=>{state.statsCurrency=e.target.value;savePrefs();renderSummary();renderStats()});
   $('exportBtn').addEventListener('click',()=>{
-    const data={app:'随手账本',version:1,exportedAt:new Date().toISOString(),records:state.records};
+    const data={app:'随手账本',version:2,exportedAt:new Date().toISOString(),records:state.records,cards:state.cards,memberships:state.memberships};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`随手账本备份-${localMonth()}-${localDatetime().slice(8,10)}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);toast('备份文件已准备下载');
   });
@@ -493,9 +761,16 @@
   $('importFile').addEventListener('change',async(e)=>{
     const file=e.target.files?.[0];e.target.value='';if(!file)return;
     if(file.size>12*1024*1024){alert('备份文件过大');return}
-    try{const json=JSON.parse(await file.text());if(json.app!=='随手账本'||json.version!==1)throw new Error('不是本应用支持的备份格式');const records=validateRecords(json.records);
-      if(!confirm(`将用备份里的 ${records.length} 笔记录覆盖当前 ${state.records.length} 笔记录。确定继续吗？`))return;
-      const old=state.records;state.records=records;if(!saveRecords()){state.records=old;return;}closeOverlay($('manageOverlay'));renderAll();toast(`已恢复 ${records.length} 笔记录`);
+    try{const json=JSON.parse(await file.text());if(json.app!=='随手账本'||![1,2].includes(json.version))throw new Error('不是本应用支持的备份格式');
+      const records=validateRecords(json.records),isNew=json.version===2;
+      const cards=isNew?validateCards(json.cards):state.cards;
+      const memberships=isNew?validateMemberships(json.memberships):state.memberships;
+      const warning=isNew?`同时覆盖 ${state.cards.length} 张储值卡、${state.memberships.length} 项会员记录。`:'这是旧版账本，只替换账单，储值卡与会员资料保留。';
+      if(!confirm(`将用备份里的 ${records.length} 笔记录覆盖当前 ${state.records.length} 笔记录。${warning} 确定继续吗？`))return;
+      const prior={records:state.records,cards:state.cards,memberships:state.memberships};
+      state.records=records;state.cards=cards;state.memberships=memberships;
+      if(!saveBundle()){Object.assign(state,prior);return;}
+      closeOverlay($('manageOverlay'));renderAll();renderExtras();toast(`已恢复 ${records.length} 笔记录`);
     }catch(err){alert(`导入失败：${err.message}`)}
   });
   $('clearBtn').addEventListener('click',()=>{
@@ -503,7 +778,7 @@
     if(!confirm('最后确认：清空后只能通过先前导出的备份恢复。'))return;
     const old=state.records;state.records=[];if(!saveRecords()){state.records=old;return;}closeOverlay($('manageOverlay'));renderAll();toast('账本已清空');
   });
-  renderCategories();renderAll();syncAmountInput();
+  renderCategories();renderAll();renderExtras();syncAmountInput();refreshPaymentChoices();
   if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')){
     window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('离线缓存不可用',err)));
   }

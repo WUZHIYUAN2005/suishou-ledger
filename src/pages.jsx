@@ -184,7 +184,7 @@ function EntryRow({ entry, recent, grouped, open }) {
         </small>
       </span>
       <span className={`entry-amount ${entry.type}`}>
-        {entry.type === "income" ? "+" : "−"}
+        {entry.amountMinor === 0 ? "" : entry.type === "income" ? "+" : "−"}
         {money(entry.amountMinor, entry.currency)}
       </span>
     </GlassButton>

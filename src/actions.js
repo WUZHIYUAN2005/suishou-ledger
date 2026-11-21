@@ -41,10 +41,10 @@ function refund(cards, record) {
 
 export function saveEntry(id, data) {
   const { currency, occurredAt, type, category } = data;
-  const amountMinor = parseMoney(data.amount, currency);
+  const amountMinor = parseMoney(data.amount, currency, true);
   if (amountMinor === null) {
     const { name, digits } = moneyDef(currency);
-    throw new Error(`请输入有效的正数金额（${name}最多 ${digits} 位小数）。`);
+    throw new Error(`请输入有效的非负金额（${name}最多 ${digits} 位小数），0 元事件也可以保存。`);
   }
   if (!isDatetime(occurredAt)) throw new Error("请选择有效日期");
   const old = state.records.find((record) => record.id === id);

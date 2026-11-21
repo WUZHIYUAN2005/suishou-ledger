@@ -248,33 +248,151 @@
     .fx-preview a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
     .fx-notice{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6}
     .fx-note-link{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+
+    /* Page navigation, inspired by iOS translucent controls. */
+    .app{padding-top:12px;}
+    .nav-sticky{position:sticky;top:0;z-index:12;padding:12px 2px 10px;margin:-12px -2px 22px;background:linear-gradient(170deg,var(--glass-top),transparent 87%),var(--glass-bg);border-bottom:1px solid var(--glass-border);border-radius:0 0 22px 22px;-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);box-shadow:0 7px 25px rgba(27,41,77,.06)}
+    .nav-sticky .top{margin:0 12px 11px;justify-content:flex-start;min-height:46px;gap:10px}
+    .nav-sticky .brand{min-width:0;flex:1;gap:10px}
+    .nav-sticky .brand-text{min-width:0}
+    .nav-sticky .brand-mark{flex-shrink:0}
+    .menu-toggle{width:45px;height:45px;flex:0 0 45px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-radius:16px;border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--ink);box-shadow:inset 0 1px 0 var(--glass-top);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+    .menu-toggle span{width:19px;height:2px;background:currentColor;border-radius:9px;display:block;transition:transform .2s ease}
+    .menu-toggle[aria-expanded="true"] span:first-child{transform:translateY(7px) rotate(45deg)}
+    .menu-toggle[aria-expanded="true"] span:nth-child(2){opacity:0}
+    .menu-toggle[aria-expanded="true"] span:last-child{transform:translateY(-7px) rotate(-45deg)}
+    .view-tabs{display:flex;align-items:center;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;padding:2px 12px 5px;scrollbar-width:none;scroll-padding-inline:12px}
+    .view-tabs::-webkit-scrollbar{display:none}
+    .view-tab{flex:1 0 auto;min-width:65px;padding:11px 12px;border-radius:15px;background:transparent;border:1px solid transparent;color:var(--muted);font-size:13px;font-weight:750;white-space:nowrap;transition:background-color .2s ease,box-shadow .2s ease,color .2s ease}
+    .view-tab.active{color:var(--ink);background:linear-gradient(160deg,var(--glass-top),transparent 80%),var(--glass-strong);border-color:var(--glass-border);box-shadow:0 4px 14px rgba(29,44,79,.10),inset 0 1px 0 var(--glass-top)}
+    .view-pane[hidden]{display:none!important}
+    .view-pane{min-height:35vh;animation:view-appear .20s ease both}
+    @keyframes view-appear{from{opacity:.6;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    .view-pane>.panel{margin-bottom:18px}
+    .home-shortcuts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 16px}
+    .home-shortcut{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1px solid var(--glass-border);background:linear-gradient(155deg,var(--glass-top),transparent 68%),var(--glass-bg);box-shadow:var(--glass-shadow);border-radius:19px;padding:14px 12px;color:var(--ink);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+    .home-shortcut-symbol{display:grid;place-items:center;width:30px;height:30px;border-radius:11px;background:var(--accentsoft);color:var(--accent);font-size:20px;margin-bottom:7px}
+    .home-shortcut strong{font-size:13px;white-space:nowrap}.home-shortcut small{font-size:11px;color:var(--muted);white-space:nowrap}
+    .overview-extras-tip{margin:-3px 0 18px;color:var(--muted);font-size:11px;text-align:left;padding-left:3px}
+    .recent-panel{margin-bottom:20px}.recent-more{border:0;background:transparent;color:var(--accent);font-size:12px;font-weight:800;padding:8px}
+    .recent-row{width:100%;border:0;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px;text-align:left;padding:12px 2px;background:transparent;color:var(--ink)}
+    .recent-row-info{flex:1;min-width:0}.recent-row-name{display:block;font-size:13px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.recent-row-meta{display:block;font-size:11px;color:var(--muted);margin-top:5px}
+    .recent-row-value{font-size:13px;font-weight:800;white-space:nowrap;max-width:42%;overflow:hidden;text-overflow:ellipsis}
+    .recent-empty{font-size:12px;color:var(--muted);text-align:center;padding:18px 4px}
+    body.menu-open{overflow:hidden}
+    .view-drawer-backdrop{position:fixed;inset:0;z-index:27;background:rgba(4,10,22,.48);opacity:0;pointer-events:none;transition:opacity .24s ease}
+    .view-drawer-backdrop.open{opacity:1;pointer-events:auto}
+    .view-drawer{position:fixed;inset:0 auto 0 0;width:min(310px,86vw);padding:calc(25px + env(safe-area-inset-top)) 18px calc(25px + env(safe-area-inset-bottom));background:linear-gradient(150deg,var(--glass-top),transparent 70%),var(--glass-panel);border-right:1px solid var(--glass-border);box-shadow:12px 0 40px rgba(9,21,51,.25);z-index:28;transform:translateX(-103%);visibility:hidden;transition:transform .26s ease,visibility .26s ease;-webkit-backdrop-filter:blur(35px) saturate(170%);backdrop-filter:blur(35px) saturate(170%);overflow:auto;color:var(--ink)}
+    .view-drawer.open{transform:translateX(0);visibility:visible}
+    .view-drawer-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:26px;padding:0 3px}
+    .view-drawer-head strong{display:block;font-size:22px}.view-drawer-head small{display:block;font-size:11px;color:var(--muted);margin-top:7px}
+    .drawer-close{border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--ink);border-radius:13px;width:38px;height:38px;font-size:27px;line-height:1}
+    .view-drawer-links{display:grid;gap:7px}.drawer-item{width:100%;border:1px solid transparent;background:transparent;color:var(--ink);display:flex;align-items:center;gap:12px;text-align:left;padding:13px 12px;border-radius:16px;font-size:14px;font-weight:700}
+    .drawer-item.active{background:var(--accentsoft);border-color:var(--glass-border)}
+    .drawer-icon{font-size:21px;color:var(--accent);width:28px;text-align:center}.drawer-arrow{margin-left:auto;color:var(--muted);font-size:20px}
+    .drawer-divider{height:1px;background:var(--line);margin:21px 0 13px}
+    .drawer-foot{font-size:11px;line-height:1.7;color:var(--muted);padding:0 12px}
+    @media(max-width:830px){.home-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.nav-sticky{margin-bottom:18px}}
+    @media(max-width:420px){.app{padding-top:8px}.nav-sticky{margin-top:-8px}.nav-sticky .top{margin:0 8px 9px;gap:8px}.menu-toggle{width:40px;height:40px;flex-basis:40px;border-radius:14px}.nav-sticky .brand-mark{width:36px;height:36px}.nav-sticky .brand-text strong{font-size:18px}.nav-sticky .theme-switch{min-width:58px;padding:9px 7px}.view-tabs{padding-inline:8px;gap:4px}.view-tab{font-size:12px;padding:10px 11px;min-width:60px}.home-shortcut{padding:12px}}
+    @media(prefers-reduced-motion:reduce){.view-pane{animation:none}.view-drawer,.view-drawer-backdrop{transition:none}}
+    @media(prefers-reduced-transparency:reduce){.nav-sticky,.menu-toggle,.home-shortcut,.view-drawer{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--card)}}
+
+    /* iPhone / X-style quick compose: compact floating circular add action. */
+    .compose-fab {
+      position:fixed;
+      right:calc(20px + env(safe-area-inset-right, 0px));
+      bottom:calc(24px + env(safe-area-inset-bottom, 0px));
+      z-index:8;
+      width:62px;height:62px;
+      padding:0;
+      border:1px solid rgba(255,255,255,.38);
+      border-radius:50%;
+      display:grid;place-items:center;
+      color:#fff;
+      background:linear-gradient(145deg,#7182ff 0%,#5369e9 48%,#4457d0 100%);
+      box-shadow:0 12px 28px rgba(57,74,175,.32),inset 0 1.5px 1.5px rgba(255,255,255,.3);
+      -webkit-backdrop-filter:blur(18px) saturate(175%);
+      backdrop-filter:blur(18px) saturate(175%);
+      -webkit-tap-highlight-color:transparent;
+      transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;
+      touch-action:manipulation;
+    }
+    .compose-fab svg {display:block;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(20,30,80,.18));}
+    .compose-fab:hover {transform:translateY(-2px);box-shadow:0 15px 32px rgba(57,74,175,.38),inset 0 1.5px 1.5px rgba(255,255,255,.3);}
+    .compose-fab:active {transform:scale(.93);filter:brightness(.97);}
+    .compose-fab:focus-visible {outline:3px solid var(--accent);outline-offset:4px;}
+    :root[data-theme="dark"] .compose-fab {
+      background:linear-gradient(145deg,#7689ff 0%,#5369e9 65%,#4254c7 100%);
+      border-color:rgba(235,243,255,.34);
+      box-shadow:0 12px 32px rgba(4,12,43,.55),inset 0 1.5px 1.5px rgba(255,255,255,.22);
+    }
+    @media(max-width:420px){.compose-fab{width:58px;height:58px;right:calc(17px + env(safe-area-inset-right, 0px));bottom:calc(19px + env(safe-area-inset-bottom, 0px));}}
+    @media(prefers-reduced-motion:reduce){.compose-fab{transition:none;}}
+    @media(prefers-reduced-transparency:reduce){.compose-fab{-webkit-backdrop-filter:none;backdrop-filter:none;}}
   </style>
 </head>
 <body>
   <main class="app">
-    <header class="top">
-      <div class="brand"><div class="brand-mark">¥</div><div class="brand-text"><strong>随手账本</strong><small>记录每一笔，清楚每一天</small></div></div>
-      <div class="header-actions"><button type="button" class="ghost theme-switch" id="themeBtn" aria-label="切换外观模式" title="切换外观模式">◐ 自动</button><button type="button" class="ghost" id="manageBtn">↗ 数据管理</button></div>
-    </header>
-    <div class="headline"><div><h1>我的收支概览</h1><p class="subline">轻松记账，掌握每一笔钱的去向</p></div>
+    <div class="nav-sticky" id="navSticky">
+      <header class="top">
+        <button type="button" class="menu-toggle" id="viewMenuBtn" aria-label="打开页面菜单" aria-expanded="false" aria-controls="viewDrawer"><span></span><span></span><span></span></button>
+        <div class="brand"><div class="brand-mark">¥</div><div class="brand-text"><strong>随手账本</strong><small>记录每一笔，清楚每一天</small></div></div>
+        <div class="header-actions"><button type="button" class="ghost theme-switch" id="themeBtn" aria-label="切换外观模式" title="切换外观模式">◐ 自动</button></div>
+      </header>
+      <nav class="view-tabs" id="viewTabs" role="tablist" aria-label="切换记账页面">
+        <button id="tab-overview" class="view-tab active" type="button" role="tab" aria-selected="true" aria-controls="pane-overview" data-view-target="overview">总览</button>
+        <button id="tab-bills" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="pane-bills" data-view-target="bills">账单</button>
+        <button id="tab-stats" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="pane-stats" data-view-target="stats">统计</button>
+        <button id="tab-cards" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="pane-cards" data-view-target="cards">储值卡</button>
+        <button id="tab-members" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="pane-members" data-view-target="members">会员订阅</button>
+      </nav>
+    </div>
+    <div class="view-drawer-backdrop" id="viewDrawerBackdrop" aria-hidden="true"></div>
+    <aside class="view-drawer" id="viewDrawer" role="dialog" aria-modal="true" aria-label="页面导航" aria-hidden="true" inert>
+      <div class="view-drawer-head"><div><strong>随手账本</strong><small>选择要查看的页面</small></div><button type="button" class="drawer-close" id="drawerCloseBtn" aria-label="关闭菜单">×</button></div>
+      <nav class="view-drawer-links" aria-label="全部页面">
+        <button type="button" class="drawer-item active" data-view-target="overview"><span class="drawer-icon">⌂</span><span>总览</span><span class="drawer-arrow">›</span></button>
+        <button type="button" class="drawer-item" data-view-target="bills"><span class="drawer-icon">≡</span><span>账单明细</span><span class="drawer-arrow">›</span></button>
+        <button type="button" class="drawer-item" data-view-target="stats"><span class="drawer-icon">◉</span><span>分类统计</span><span class="drawer-arrow">›</span></button>
+        <button type="button" class="drawer-item" data-view-target="cards"><span class="drawer-icon">▣</span><span>储值卡管理</span><span class="drawer-arrow">›</span></button>
+        <button type="button" class="drawer-item" data-view-target="members"><span class="drawer-icon">◷</span><span>会员与订阅</span><span class="drawer-arrow">›</span></button>
+      </nav>
+      <div class="drawer-divider"></div>
+      <button type="button" class="drawer-item" id="manageBtn"><span class="drawer-icon">⇧</span><span>数据管理与备份</span><span class="drawer-arrow">›</span></button>
+      <p class="drawer-foot">账目仅保存在当前设备 · 请定期备份</p>
+    </aside>
+    <div class="headline"><div><h1 id="currentViewTitle">我的收支概览</h1><p class="subline" id="currentViewDescription">轻松记账，掌握每一笔钱的去向</p></div>
       <div class="range-actions"><div class="month-box"><button type="button" class="arrow" id="prevMonth" aria-label="上个月">‹</button><input type="month" class="month-input" id="monthInput" aria-label="选择月份"><button type="button" class="arrow" id="nextMonth" aria-label="下个月">›</button></div><button type="button" class="toggle-time" id="allTimeBtn">全部时间</button></div>
     </div>
+    <section class="view-pane" id="pane-overview" role="tabpanel" aria-labelledby="tab-overview" data-view-pane="overview">
     <section class="summary" aria-label="收入支出概览">
       <div class="summary-card main"><div class="card-label">账户结余</div><div class="card-value" id="balance">¥0.00</div><div class="card-foot">当前统计币种 · <span id="summaryCurrencyLabel">人民币 CNY</span></div></div>
       <div class="summary-card"><div class="card-label"><span class="pill-dot" style="color:#31b990"></span>收入</div><div class="card-value positive" id="incomeSum">¥0.00</div><div class="card-foot">所选时间范围</div></div>
       <div class="summary-card"><div class="card-label"><span class="pill-dot" style="color:#ec818b"></span>支出</div><div class="card-value negative" id="expenseSum">¥0.00</div><div class="card-foot">所选时间范围</div></div>
     </section>
-    <button type="button" class="extras-jump" id="extrasJumpBtn" aria-label="跳转到储值卡与会员管理">
-      <span class="extras-jump-icon" aria-hidden="true">✦</span><span class="extras-jump-text"><strong>储值卡与会员</strong><small id="extrasJumpSummary">星礼卡余额、会员续费与到期时间</small></span><span class="extras-jump-arrow" aria-hidden="true">›</span>
-    </button>
-    <div class="columns">
-      <section class="panel" aria-labelledby="listHeading">
+    <div class="home-shortcuts" aria-label="快捷进入功能页面">
+      <button type="button" class="home-shortcut" data-view-target="bills"><span class="home-shortcut-symbol">≡</span><strong>账单明细</strong><small>筛选和排序</small></button>
+      <button type="button" class="home-shortcut" data-view-target="stats"><span class="home-shortcut-symbol">◉</span><strong>分类统计</strong><small>查看收支占比</small></button>
+      <button type="button" class="home-shortcut" data-view-target="cards"><span class="home-shortcut-symbol">▣</span><strong>储值卡</strong><small>余额与充值</small></button>
+      <button type="button" class="home-shortcut" data-view-target="members"><span class="home-shortcut-symbol">◷</span><strong>会员订阅</strong><small>到期与续费</small></button>
+    </div>
+    <p class="overview-extras-tip" id="extrasJumpSummary">储值卡和会员订阅概况</p>
+    <section class="panel recent-panel" aria-labelledby="recentHeading">
+      <div class="panel-heading"><span class="panel-title" id="recentHeading">最近账单</span><button type="button" class="recent-more" data-view-target="bills">查看全部 ›</button></div>
+      <div id="recentEntries" aria-live="polite"></div>
+    </section>
+
+    </section>
+    <section class="view-pane" id="pane-bills" role="tabpanel" aria-labelledby="tab-bills" data-view-pane="bills" hidden>
+<section class="panel" aria-labelledby="listHeading">
         <div class="panel-heading"><div class="panel-title" id="listHeading">账单明细</div><span class="count" id="entryCount">共 0 笔</span></div>
         <div class="filters"><select id="typeFilter" class="select" aria-label="筛选收支类型"><option value="all">全部收支</option><option value="expense">仅看支出</option><option value="income">仅看收入</option></select><select id="categoryFilter" class="select" aria-label="筛选分类"><option value="all">全部分类</option></select><select id="sortFilter" class="select" aria-label="排序方式"><option value="newest">时间：最近优先</option><option value="amountDesc">金额：从大到小</option><option value="amountAsc">金额：从小到大</option><option value="oldest">时间：最早优先</option></select></div>
         <div class="filters secondary"><input class="search" id="searchInput" placeholder="搜索名称或分类" aria-label="搜索名称或分类"><select id="listCurrencyFilter" class="select" aria-label="筛选账单币种"><option value="all">全部币种</option></select></div>
         <div id="entryList" aria-live="polite"></div>
       </section>
-      <section class="panel" aria-labelledby="statsHeading">
+    </section>
+    <section class="view-pane" id="pane-stats" role="tabpanel" aria-labelledby="tab-stats" data-view-pane="stats" hidden>
+<section class="panel" aria-labelledby="statsHeading">
         <div class="panel-heading"><div class="panel-title" id="statsHeading">分类统计</div><span class="count">按占比分析</span></div>
         <div class="stat-tabs" role="group" aria-label="统计收支类型"><button type="button" id="expenseTab" class="tab active">支出分析</button><button type="button" id="incomeTab" class="tab">收入分析</button></div>
         <div class="stat-currency"><span class="stat-caption">选择统计币种</span><select id="statsCurrency" class="select" aria-label="统计币种"></select></div>
@@ -282,30 +400,30 @@
         <div class="legend" id="legend"></div>
         <p class="stat-note">统计按所选月份及币种计算。通过「会员本次付款」登记的外币订阅会按确认时的参考汇率折算成人民币，固定计入 CNY；其他外币账单仍按原币种单独统计。</p>
       </section>
-    </div>
-
-    <section class="extras" id="extras" aria-labelledby="extrasTitle">
-      <div class="extras-heading"><div><h2 id="extrasTitle">储值卡与会员</h2><p>预付款不重复计入支出，会员到期日一眼看清</p></div></div>
-      <div class="extras-grid">
-        <section class="panel extras-panel" aria-labelledby="cardsTitle">
+    </section>
+    <section class="view-pane" id="pane-cards" role="tabpanel" aria-labelledby="tab-cards" data-view-pane="cards" hidden>
+<section class="panel extras-panel" aria-labelledby="cardsTitle">
           <div class="panel-heading"><span class="panel-title" id="cardsTitle">储值卡余额</span><span class="count" id="cardsCount">0 张</span></div>
           <div class="extras-summary"><span class="label-mini">各币种余额（不跨币种合计）</span><strong id="cardsTotals">尚无储值卡</strong></div>
           <div id="cardsList" aria-live="polite"></div>
           <button type="button" class="outline feature-add" id="addCardBtn">＋ 添加储值卡</button>
           <p class="feature-note">例如星礼卡：充值只增加储值卡余额；使用它付款时会扣卡内余额并记录一笔消费。添加已有卡时请输入当前实际余额，不会追扣旧账。</p>
         </section>
-        <section class="panel extras-panel" aria-labelledby="membersTitle">
+    </section>
+    <section class="view-pane" id="pane-members" role="tabpanel" aria-labelledby="tab-members" data-view-pane="members" hidden>
+<section class="panel extras-panel" aria-labelledby="membersTitle">
           <div class="panel-heading"><span class="panel-title" id="membersTitle">平台会员与订阅</span><span class="count" id="membersCount">0 项</span></div>
           <div class="extras-summary"><span class="label-mini">有效订阅预计年费用（按币种分别统计）</span><strong id="membersTotals">尚无订阅</strong><div class="feature-details" id="membersMonthly">填写会员后显示月均费用</div><div class="fx-subline" id="membersCnyTotal" aria-live="polite"></div></div>
           <div id="membersList" aria-live="polite"></div>
           <button type="button" class="outline feature-add" id="addMemberBtn">＋ 添加会员 / 订阅</button>
           <p class="feature-note">外币订阅会显示最新参考汇率对应的人民币估值。只有点击「记本次付款」并确认后，才生成一笔按当时汇率固定折算的人民币支出；避免与已有账目重复。到期提醒仅在打开网页时显示。</p>
         </section>
-      </div>
     </section>
     <p class="footer">数据只保存在当前网页的本地存储中，不需要账号，也不会主动上传账目。<br>更换浏览器、清除网站数据或删除主屏幕网页前，请先在「数据管理」中导出备份。</p>
   </main>
-  <nav class="dock" aria-label="快速操作"><span class="dock-tip">下一笔，从这里开始</span><button type="button" class="primary" id="addBtn"><span class="plus">＋</span>记一笔</button></nav>
+  <button type="button" class="compose-fab" id="addBtn" aria-label="记一笔" title="记一笔">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 4v16M4 12h16"/></svg>
+  </button>
   <div class="overlay" id="entryOverlay" aria-hidden="true"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <div class="sheet-header"><h2 id="sheetTitle">记一笔</h2><button type="button" class="close" id="closeEntryBtn" aria-label="关闭">×</button></div>
     <form id="entryForm">
@@ -666,7 +784,87 @@
   $('memberAmountInput').addEventListener('input',updateMemberFxPreview);
   $('memberCurrencyInput').addEventListener('change',updateMemberFxPreview);
   $('memberPaidNowInput').addEventListener('change',updateMemberPaymentFields);
-  $('extrasJumpBtn').addEventListener('click',()=>$('extras').scrollIntoView({behavior:'smooth',block:'start'}));
+
+  /* Page navigation is local UI state only; this never changes the stored transactions. */
+  const VIEW_DATA={
+    overview:['我的收支概览','轻松记账，掌握每一笔钱的去向'],
+    bills:['账单明细','按分类、日期、金额或币种快速查找'],
+    stats:['分类统计','收入与支出占比，一眼看清'],
+    cards:['储值卡管理','查看余额、充值和用卡记录'],
+    members:['会员与订阅','订阅价格、到期日和续费管理']
+  };
+  let activeView='overview';
+  const menu=$('viewDrawer'),menuButton=$('viewMenuBtn'),menuBackdrop=$('viewDrawerBackdrop');
+  let returnFocus=null;
+  function openViewMenu(){
+    returnFocus=document.activeElement;
+    menu.classList.add('open');menuBackdrop.classList.add('open');
+    menu.removeAttribute('inert');menu.setAttribute('aria-hidden','false');
+    menuButton.setAttribute('aria-expanded','true');
+    document.body.classList.add('menu-open');
+    $('drawerCloseBtn').focus();
+  }
+  function closeViewMenu(restoreFocus=true){
+    const open=menu.classList.contains('open');
+    menu.classList.remove('open');menuBackdrop.classList.remove('open');
+    menu.setAttribute('aria-hidden','true');menu.setAttribute('inert','');
+    menuButton.setAttribute('aria-expanded','false');
+    document.body.classList.remove('menu-open');
+    if(open&&restoreFocus&&(returnFocus instanceof HTMLElement))returnFocus.focus({preventScroll:true});
+  }
+  function goToView(view,updateHistory=true){
+    if(!Object.hasOwn(VIEW_DATA,view))view='overview';
+    activeView=view;
+    for(const pane of document.querySelectorAll('[data-view-pane]'))pane.hidden=pane.dataset.viewPane!==view;
+    for(const target of document.querySelectorAll('[data-view-target]')){
+      const selected=target.dataset.viewTarget===view;
+      target.classList.toggle('active',selected);
+      if(target.getAttribute('role')==='tab'){
+        target.setAttribute('aria-selected',String(selected));
+        target.tabIndex=selected?0:-1;
+      }
+      if(target.classList.contains('drawer-item')){
+        if(selected)target.setAttribute('aria-current','page');else target.removeAttribute('aria-current');
+      }
+    }
+    $('currentViewTitle').textContent=VIEW_DATA[view][0];
+    $('currentViewDescription').textContent=VIEW_DATA[view][1];
+    closeViewMenu(false);
+    if(updateHistory&&location.hash!=='#'+view)location.hash=view;
+    window.scrollTo({top:0,left:0,behavior:'instant'});
+    const activeTab=document.getElementById('tab-'+view);
+    if(activeTab){const bar=activeTab.parentElement;
+      if(bar.scrollWidth>bar.clientWidth)bar.scrollTo({left:Math.max(0,activeTab.offsetLeft-bar.offsetLeft-(bar.clientWidth-activeTab.offsetWidth)/2),behavior:'smooth'});
+    }
+  }
+  document.querySelectorAll('[data-view-target]').forEach(btn=>btn.addEventListener('click',()=>goToView(btn.dataset.viewTarget)));
+  menuButton.addEventListener('click',()=>menu.classList.contains('open')?closeViewMenu():openViewMenu());
+  $('drawerCloseBtn').addEventListener('click',()=>closeViewMenu());
+  menuBackdrop.addEventListener('click',()=>closeViewMenu());
+  menu.addEventListener('keydown',e=>{
+    if(e.key==='Tab'){
+      const focusable=[...menu.querySelectorAll('button:not([disabled])')];
+      const first=focusable[0],last=focusable[focusable.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  });
+  $('viewTabs').addEventListener('keydown',e=>{
+    if(!['ArrowRight','ArrowLeft','Home','End'].includes(e.key))return;
+    const tabs=[...document.querySelectorAll('.view-tab')];
+    const current=tabs.indexOf(document.activeElement);if(current===-1)return;
+    e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?tabs.length-1:(current+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+    goToView(tabs[next].dataset.viewTarget);tabs[next].focus({preventScroll:true});
+  });
+  window.addEventListener('hashchange',()=>goToView(location.hash.slice(1),false));
+  function renderRecent(){
+    const root=$('recentEntries');
+    const recent=[...rangeRecords()].sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt)||b.createdAt.localeCompare(a.createdAt)).slice(0,4);
+    if(!recent.length){root.innerHTML='<div class="recent-empty">这一时间范围还没有账单，点击右下角「＋」开始吧</div>';return;}
+    root.innerHTML=recent.map(r=>`<button type="button" class="recent-row" data-recent-id="${escapeHTML(r.id)}"><span class="recent-row-info"><span class="recent-row-name">${escapeHTML(r.name)}</span><span class="recent-row-meta">${escapeHTML(r.occurredAt.slice(5,16).replace('T',' '))} · ${escapeHTML(r.category)}</span></span><span class="recent-row-value ${r.type==='expense'?'negative':'positive'}">${r.type==='expense'?'-':'+'}${escapeHTML(money(r.amountMinor,r.currency))}</span></button>`).join('');
+    root.querySelectorAll('[data-recent-id]').forEach(b=>b.addEventListener('click',()=>openEntry(b.dataset.recentId)));
+  }
+
   $('addCardBtn').addEventListener('click',()=>openCard());$('addMemberBtn').addEventListener('click',()=>openMember());
   for(const [overlay,button] of [['cardOverlay','closeCardBtn'],['topupOverlay','closeTopupBtn'],['memberOverlay','closeMemberBtn']]){
     $(button).addEventListener('click',()=>closeOverlay($(overlay)));
@@ -807,7 +1005,7 @@
     $('donut').setAttribute('aria-label',groups.map(g=>`${g.name}${(100*g.value/total).toFixed(1)}%`).join('，'));
     $('legend').innerHTML=groups.map(g=>`<div class="legend-row"><span class="legend-dot" style="background:${g.info.color}"></span><span class="legend-name">${escapeHTML(g.name)}</span><span class="legend-share">${(100*g.value/total).toFixed(1)}%</span><span class="legend-value">${escapeHTML(money(g.value,state.statsCurrency))}</span></div>`).join('');
   }
-  function renderAll(){renderSummary();renderList();renderStats();$('allTimeBtn').classList.toggle('active',state.allDates);$('monthInput').disabled=state.allDates;$('prevMonth').disabled=state.allDates;$('nextMonth').disabled=state.allDates;}
+  function renderAll(){renderSummary();renderList();renderStats();renderRecent();$('allTimeBtn').classList.toggle('active',state.allDates);$('monthInput').disabled=state.allDates;$('prevMonth').disabled=state.allDates;$('nextMonth').disabled=state.allDates;}
   function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),2300)}
   function openOverlay(el){el.classList.add('open');el.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
   function closeOverlay(el){el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!document.querySelector('.overlay.open'))document.body.style.overflow=''}
@@ -876,9 +1074,9 @@
   $('currencyInput').addEventListener('change',()=>{syncAmountInput();refreshPaymentChoices();});
   $('addBtn').addEventListener('click',()=>openEntry());$('closeEntryBtn').addEventListener('click',()=>closeOverlay($('entryOverlay')));
   $('entryOverlay').addEventListener('click',e=>{if(e.target===$('entryOverlay'))closeOverlay($('entryOverlay'))});
-  $('manageBtn').addEventListener('click',()=>openOverlay($('manageOverlay')));$('closeManageBtn').addEventListener('click',()=>closeOverlay($('manageOverlay')));
+  $('manageBtn').addEventListener('click',()=>{closeViewMenu(false);openOverlay($('manageOverlay'))});$('closeManageBtn').addEventListener('click',()=>closeOverlay($('manageOverlay')));
   $('manageOverlay').addEventListener('click',e=>{if(e.target===$('manageOverlay'))closeOverlay($('manageOverlay'))});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay.open').forEach(closeOverlay)});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(menu.classList.contains('open'))closeViewMenu();document.querySelectorAll('.overlay.open').forEach(closeOverlay)}});
   function moveMonth(offset){const [y,m]=state.month.split('-').map(Number);const d=new Date(y,m-1+offset,1);state.month=localMonth(d);$('monthInput').value=state.month;renderAll()}
   $('prevMonth').addEventListener('click',()=>moveMonth(-1));$('nextMonth').addEventListener('click',()=>moveMonth(1));
   $('monthInput').addEventListener('change',e=>{if(/^\d{4}-\d{2}$/.test(e.target.value)){state.month=e.target.value;renderAll()}});
@@ -917,7 +1115,7 @@
     if(!confirm('最后确认：清空后只能通过先前导出的备份恢复。'))return;
     const old=state.records;state.records=[];if(!saveRecords()){state.records=old;return;}closeOverlay($('manageOverlay'));renderAll();toast('账本已清空');
   });
-  renderCategories();renderAll();renderExtras();syncAmountInput();refreshPaymentChoices();
+  renderCategories();renderAll();renderExtras();syncAmountInput();refreshPaymentChoices();goToView(location.hash.slice(1),false);
   if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')){
     window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('离线缓存不可用',err)));
   }

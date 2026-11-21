@@ -20,3 +20,9 @@ pnpm run build
 - Google Drive 沿用已有的 OAuth 配置和版本 1 同步格式。真实授权需要从已配置的网页来源打开。
 - 云端同步面板可在当前浏览器设置自动或手动备份。自动备份需要网页处于前台且授权有效。更改备份位置会移动同一个 Drive 文件，网页只列出当前授权可访问的私人文件夹，也可新建文件夹。
 - 卡片封面保存在当前浏览器的 IndexedDB。账本 JSON 备份和 Google Drive 同步继续覆盖账单、卡片资料及订阅。
+
+## 可选：Google Drive 长期授权与自动续期
+
+仓库现在包含 [私有 OAuth 后端](./auth-worker/README.md) 和 [浏览器授权桥接模块](./auth-client.js)。它采用 Cloudflare Worker + KV 保存加密 Refresh Token，网页只保存本设备随机会话凭证。未部署 Worker 前，原来的 Google Drive Token 登录方式保持可用。
+
+**部署前务必阅读后端目录的说明。** 需要自行配置 Worker、KV、Google OAuth 客户端重定向 URI 及 Cloudflare Secrets。请勿将 Client Secret、Refresh Token、加密密钥上传到 GitHub。

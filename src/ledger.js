@@ -64,14 +64,14 @@ function money(minor, currency) {
     maximumFractionDigits: def.digits,
   }).format(minor / 10 ** def.digits);
 }
-function parseMoney(value, currency) {
+function parseMoney(value, currency, allowZero = false) {
   const digits = moneyDef(currency).digits;
   const s = String(value).trim();
   if (!/^\d+(?:\.\d+)?$/.test(s)) return null;
   const [whole, frac = ""] = s.split(".");
   if (frac.length > digits) return null;
   const minor = Number(whole) * 10 ** digits + Number(frac.padEnd(digits, "0"));
-  if (!Number.isSafeInteger(minor) || minor <= 0 || minor > 1000000000000)
+  if (!Number.isSafeInteger(minor) || (minor === 0 && !allowZero) || minor > 1000000000000)
     return null;
   return minor;
 }
@@ -198,7 +198,7 @@ function validateRecords(records) {
       throw new Error("备份中包含不支持的币种");
     if (
       !Number.isSafeInteger(r.amountMinor) ||
-      r.amountMinor <= 0 ||
+      r.amountMinor < 0 ||
       r.amountMinor > 1000000000000
     )
       throw new Error("备份中的金额不正确");

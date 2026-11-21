@@ -1,0 +1,78 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>随手账本 · 安全恢复</title>
+<style>:root{font:16px/1.55 system-ui,"PingFang SC",sans-serif;color:#29283c;background:#f6f2fb}*{box-sizing:border-box}body{margin:0;background:radial-gradient(at 0 0,#ffdfec,transparent 55%),radial-gradient(at 100% 70%,#dce8ff,transparent 60%),#f6f2fb;min-height:100vh}main{max-width:620px;margin:30px auto 80px;padding:0 17px}h1{font-size:1.7rem;margin:0 0 10px}h2{font-size:1.06rem;margin:0 0 14px}.panel{background:#fffdfaD9;backdrop-filter:blur(18px);border:1px solid white;border-radius:24px;padding:22px;margin:15px 0;box-shadow:0 12px 35px #36306512}p{color:#5d5971}button{background:#5d519b;border:0;border-radius:15px;color:white;font:inherit;font-weight:600;padding:12px 15px}button:disabled{background:#aba6bc}input[type=file]{display:block;max-width:100%;margin-top:12px}.small{font-size:.85rem;color:#77708b}.metrics{display:flex;gap:8px;flex-wrap:wrap}.metrics span{flex:1;min-width:110px;background:#f0edf9;border-radius:13px;text-align:center;padding:10px}.label{display:block;margin:12px 0}.label input{width:18px;height:18px;vertical-align:middle}#result{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#5950a0}</style></head><body><main>
+<div class="small">随手账本 · 本地安全恢复</div><h1>找回订阅与储值卡</h1><p>只补回旧备份中缺失的项目，保留当前账单和已有资料。所有文件仅在浏览器本地处理，不上传到服务器。</p>
+<section class="panel"><h2>1. 先备份当前数据</h2><p>请用原来记账的同一个浏览器打开，Safari、Chrome、主屏幕 App 的数据可能不互通。</p><div id="metrics" class="metrics">读取中……</div><p><button id="save">下载当前数据紧急备份</button></p><p class="small">确认下载的文件已保存，再执行恢复。紧急备份包含当前账单、订阅、储值卡和本地云同步标记。</p></section>
+<section class="panel"><h2>2. 选择以前的 JSON 备份</h2><input id="file" type="file" accept=".json,application/json"><p id="details" class="small">支持随手账本 v2/v3 备份，以及云端同步 JSON。v1 账单不包含订阅或卡包。</p>
+<label class="label"><input id="members" type="checkbox" checked> 合并恢复订阅</label>
+<label class="label"><input id="cards" type="checkbox" checked> 合并恢复储值卡</label><p class="small">相同 ID 保留当前版本，不替换、不删除已有项目。</p></section>
+<section class="panel"><h2>3. 执行恢复</h2><button id="restore" disabled>仅补回缺失项目</button><p id="result" role="status"></p><p class="small">恢复后请再导出一次最新紧急备份，然后打开账本查看。</p><a href="./cloud.html">返回随手账本</a></section>
+</main><script>
+(()=>{
+"use strict";
+const R="suishou-ledger.records.v1",E="suishou-ledger.extras.v1",M="suishou-ledger.cloud-meta.v1",O="suishou-ledger.cloud-device.v1";
+const $=id=>document.getElementById(id);let incoming=null,downloaded=false;
+const parse=(s,f)=>s===null?f:JSON.parse(s);
+function current(){
+ const records=parse(localStorage.getItem(R),[]),extras=parse(localStorage.getItem(E),{cards:[],memberships:[]}),meta=parse(localStorage.getItem(M),null);
+ if(!Array.isArray(records)||!extras||!Array.isArray(extras.cards)||!Array.isArray(extras.memberships)||meta!==null&&typeof meta!=="object")throw Error("本地数据格式异常，停止操作");
+ return{records,cards:extras.cards,memberships:extras.memberships,meta};
+}
+function show(){
+ const d=current();$("metrics").textContent="";
+ for(const [label,list] of [["账单",d.records],["订阅",d.memberships],["卡包",d.cards]]){const x=document.createElement("span");x.textContent=label+" "+list.length+" 条";$("metrics").append(x);}
+ return d;
+}
+function download(data){
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download="随手账本-紧急备份-"+new Date().toISOString().slice(0,10)+".json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
+}
+$("save").onclick=()=>{
+ try{const d=current(),snapshot={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith("suishou-ledger."))snapshot[k]=localStorage.getItem(k);}
+ download({app:"随手账本",version:2,exportedAt:new Date().toISOString(),records:d.records,cards:d.cards,memberships:d.memberships,_emergencyLocalStorage:snapshot});
+ downloaded=true;$("result").textContent="已触发下载，请确认文件确实保存在手机「文件」中。";
+ }catch(e){$("result").textContent="备份失败："+e.message;}
+};
+function validate(items,kind){
+ if(!Array.isArray(items)||items.length>(kind==="cards"?100:500))throw Error("备份中的"+kind+"格式不正确");
+ const ids=new Set();
+ for(const x of items){
+ if(!x||typeof x.id!=="string"||x.id.length>100||ids.has(x.id)||typeof x.name!=="string"||!x.name.trim()||typeof x.currency!=="string")throw Error("备份中有无效/重复的项目");
+ ids.add(x.id);
+ const val=kind==="cards"?x.balanceMinor:x.amountMinor;
+ if(!Number.isSafeInteger(val)||val<0||kind==="memberships"&&val===0)throw Error("备份中有无效金额");
+ if(kind==="memberships"&&(!["month","quarter","year","once"].includes(x.cycle)||typeof x.nextDate!=="string"))throw Error("备份中有无效订阅周期或日期");
+ }
+ return items;
+}
+$("file").onchange=async()=>{
+ incoming=null;$("restore").disabled=true;const f=$("file").files[0];if(!f)return;
+ try{if(f.size>12*1024*1024)throw Error("文件过大");
+ const j=JSON.parse(await f.text());if(j?.app!=="随手账本"||![2,3].includes(j.version)&&j.syncVersion!==1)throw Error("该文件不包含可恢复的订阅和卡包格式");
+ incoming={memberships:validate(j.memberships,"memberships"),cards:validate(j.cards,"cards")};
+ $("details").textContent="已读取 "+f.name+"：订阅 "+incoming.memberships.length+" 项、储值卡 "+incoming.cards.length+" 张。";
+ $("members").checked=incoming.memberships.length>0;$("cards").checked=incoming.cards.length>0;
+ $("members").disabled=!incoming.memberships.length;$("cards").disabled=!incoming.cards.length;
+ $("restore").disabled=!incoming.memberships.length&&!incoming.cards.length;$("result").textContent="";
+ }catch(e){$("details").textContent="文件读取失败："+e.message;}
+};
+$("restore").onclick=()=>{
+ try{
+ if(!incoming)throw Error("请先选择旧备份");
+ if(!downloaded)throw Error("请先下载当前数据的紧急备份");
+ const d=current(),oldM=new Set(d.memberships.map(x=>x.id)),oldC=new Set(d.cards.map(x=>x.id));
+ const addM=$("members").checked?incoming.memberships.filter(x=>!oldM.has(x.id)):[],addC=$("cards").checked?incoming.cards.filter(x=>!oldC.has(x.id)):[];
+ if(!addM.length&&!addC.length){$("result").textContent="没有需要补回的项目，未修改数据。";return;}
+ if(d.memberships.length+addM.length>500||d.cards.length+addC.length>100)throw Error("恢复后项目数量超出限制");
+ if(!confirm("将新增 "+addM.length+" 项订阅、"+addC.length+" 张储值卡，保持 "+d.records.length+" 笔账单不变，确定吗？"))return;
+ const meta=d.meta||{};for(const prop of ["versions","deleted"]){if(!meta[prop]||typeof meta[prop]!=="object")meta[prop]={};for(const kind of ["records","cards","memberships"])if(!meta[prop][kind]||typeof meta[prop][kind]!=="object")meta[prop][kind]={};}
+ let seq=0;const t=Date.now(),origin=localStorage.getItem(O)||"recovery";
+ for(const [kind,items] of [["memberships",addM],["cards",addC]])for(const x of items){meta.versions[kind][x.id]={time:t+seq++,origin};delete meta.deleted[kind][x.id];}
+ const prevE=localStorage.getItem(E),prevM=localStorage.getItem(M);
+ try{localStorage.setItem(E,JSON.stringify({cards:[...d.cards,...addC],memberships:[...d.memberships,...addM]}));localStorage.setItem(M,JSON.stringify(meta));}
+ catch(err){if(prevE===null)localStorage.removeItem(E);else localStorage.setItem(E,prevE);if(prevM===null)localStorage.removeItem(M);else localStorage.setItem(M,prevM);throw err;}
+ show();downloaded=false;$("result").textContent="已补回 "+addM.length+" 项订阅、"+addC.length+" 张储值卡；现有账单未更改。请再下载紧急备份。";
+ }catch(e){$("result").textContent="恢复未完成："+e.message;}
+};
+try{show()}catch(e){$("metrics").textContent="读取失败："+e.message;$("restore").disabled=true;}
+})();
+</script></body></html>

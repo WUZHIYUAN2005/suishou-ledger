@@ -6,6 +6,7 @@ const DRIVE_CLIENT_ID =
   "623321438376-t93joh0ms0fb806lp043k9mrub8o3f6c.apps.googleusercontent.com";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FILE_NAME = "随手账本-云端同步.json";
+const GOOGLE_IDENTITY_SCRIPT = "https://accounts.google.com/gsi/client";
 const CURRENCIES = [
   { code: "CNY", name: "人民币", digits: 2 },
   { code: "USD", name: "美元", digits: 2 },
@@ -962,14 +963,40 @@ async function syncCloud(first = false) {
     }
   }
 }
+let googleAuthorizationRequest;
+function loadGoogleAuthorization() {
+  if (window.google?.accounts?.oauth2?.initTokenClient)
+    return Promise.resolve();
+  googleAuthorizationRequest ??= new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = GOOGLE_IDENTITY_SCRIPT;
+    script.async = true;
+    const fail = () => {
+      clearTimeout(timeout);
+      script.remove();
+      reject(new Error("暂时无法连接 Google 授权服务。"));
+    };
+    const timeout = setTimeout(fail, 10000);
+    script.onerror = fail;
+    script.onload = () => {
+      if (!window.google?.accounts?.oauth2?.initTokenClient) {
+        fail();
+        return;
+      }
+      clearTimeout(timeout);
+      resolve();
+    };
+    document.head.append(script);
+  }).catch((error) => {
+    googleAuthorizationRequest = undefined;
+    throw error;
+  });
+  return googleAuthorizationRequest;
+}
+
 function getGoogleTokenFromClick() {
-  if (!window.google?.accounts?.oauth2) {
-    alert(
-      "Google 授权服务尚未加载。请用 Safari 打开本站，检查网络，稍后再试。",
-    );
-    return;
-  }
-  if (cloud.authPrompt) return;
+  if (!window.google?.accounts?.oauth2?.initTokenClient) return false;
+  if (cloud.authPrompt) return true;
   cloud.authPrompt = true;
   try {
     cloud.tokenClient = window.google.accounts.oauth2.initTokenClient({
@@ -1001,6 +1028,7 @@ function getGoogleTokenFromClick() {
     cloud.authPrompt = false;
     cloudStateLabel("无法打开 Google 授权：" + err.message, "warning");
   }
+  return true;
 }
 
 function disconnectCloud() {
@@ -1058,6 +1086,7 @@ export {
   getCnyRate,
   getGoogleTokenFromClick,
   getSnapshot,
+  loadGoogleAuthorization,
   localDatetime,
   localMonth,
   makeId,

@@ -1,35 +1,66 @@
-/* 离线缓存仅包含静态网页资源。 */
-const CACHE_NAME='suishou-ledger-static-v10';
-const ASSETS=[
-  './','./index.html','./cloud.html','./manifest.webmanifest',
-  './icon-192.png','./icon-180.png','./icon-512.png',
-  './assets/ledger-app.js','./assets/ledger-app.css','./assets/cat-avatar.webp','./assets/icloud-cloud.png',
-];
-self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
+const REVISION = "018260493263";
+const CACHE_NAME = `suishou-ledger-static-${REVISION}`;
+const ENTRY_URL = new URL(
+  `./index.html?v=${REVISION}`,
+  self.registration.scope,
+);
+const ENTRY_PATHS = new Set(
+  ["./", "./index.html", "./cloud.html"].map(
+    (path) => new URL(path, self.registration.scope).pathname,
+  ),
+);
+
+self.addEventListener("install", (event) => {
+  // Either entry can be restored from this one self-contained page.
+  event.waitUntil(
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.add(new Request(ENTRY_URL, { cache: "reload" })))
+      .then(() => self.skipWaiting()),
+  );
 });
-self.addEventListener('activate',event=>{
-  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('suishou-ledger-static-')&&key!==CACHE_NAME).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter(
+              (key) =>
+                key.startsWith("suishou-ledger-static-") && key !== CACHE_NAME,
+            )
+            .map((key) => caches.delete(key)),
+        ),
+      )
+      .then(() => self.clients.claim()),
+  );
 });
-self.addEventListener('fetch',event=>{
-  const request=event.request;
-  const url=new URL(request.url);
-  if(request.method!=='GET'||url.origin!==self.location.origin)return;
-  if(request.mode==='navigate'){
-    event.respondWith(fetch(request).then(response=>{
-      if(response.ok){
-        const copy=response.clone();
-        event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.put(request,copy)));
-      }
-      return response;
-    }).catch(()=>caches.match(request).then(cached=>cached||caches.match('./index.html'))));
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+  if (
+    request.method !== "GET" ||
+    request.mode !== "navigate" ||
+    url.origin !== ENTRY_URL.origin ||
+    !ENTRY_PATHS.has(url.pathname)
+  )
     return;
-  }
-  event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
-    if(response.ok&&url.pathname.startsWith(new URL('./',self.registration.scope).pathname)){
-      const copy=response.clone();
-      event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.put(request,copy)));
-    }
-    return response;
-  })));
+
+  event.respondWith(
+    fetch(request)
+      .then(async (response) => {
+        if (response.status < 500) return response;
+        return (
+          (await caches.match(ENTRY_URL, { cacheName: CACHE_NAME })) ?? response
+        );
+      })
+      .catch(async (error) => {
+        const cached = await caches.match(ENTRY_URL, { cacheName: CACHE_NAME });
+        if (cached) return cached;
+        throw error;
+      }),
+  );
 });

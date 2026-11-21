@@ -6,6 +6,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createRoot } from "react-dom/client";
+import catAvatar from "../assets/cat-avatar.webp";
+import cloudIcon from "../assets/icloud-cloud.png";
 import { getSnapshot, localMonth, saveCurrency, subscribe } from "./ledger.js";
 import { putCover, readCovers, removeCover } from "./covers.js";
 import { Bills, Cards, inRange, Members, Overview, Stats } from "./pages.jsx";
@@ -359,12 +361,7 @@ function App() {
               aria-label="账本数据管理"
               onClick={() => open("manage")}
             >
-              <img
-                src="./assets/cat-avatar.webp"
-                alt=""
-                width="45"
-                height="45"
-              />
+              <img src={catAvatar} alt="" width="45" height="45" />
             </GlassButton>
             <strong>随手账本</strong>
           </div>
@@ -375,12 +372,7 @@ function App() {
             title={ledger.cloudMessage}
             onClick={() => open("cloud")}
           >
-            <img
-              src="./assets/icloud-cloud.png"
-              width="30"
-              height="19"
-              alt=""
-            />
+            <img src={cloudIcon} width="30" height="19" alt="" />
             {ledger.cloudStatus !== "idle" && (
               <span className="cloud-indicator" />
             )}

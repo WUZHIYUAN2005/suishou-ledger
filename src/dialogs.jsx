@@ -6,6 +6,7 @@ import {
   estimateCny,
   getCnyRate,
   getGoogleTokenFromClick,
+  loadGoogleAuthorization,
   localDatetime,
   money,
   moneyDef,
@@ -690,7 +691,33 @@ export function CoverDialog({ card, existing, update, onClose, done }) {
 export function ManageDialog({ cloudOnly, ledger, onClose, done, notify }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [authAttempt, setAuthAttempt] = useState(cloudOnly ? 1 : 0);
+  const [authStatus, setAuthStatus] = useState(cloudOnly ? "loading" : "idle");
   const fileInput = useRef(null);
+
+  useEffect(() => {
+    if (!authAttempt) return;
+    let active = true;
+    loadGoogleAuthorization().then(
+      () => {
+        if (active) setAuthStatus("ready");
+      },
+      () => {
+        if (active) setAuthStatus("unavailable");
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [authAttempt]);
+
+  function connect() {
+    // Open the Google popup directly from a click after its script is ready.
+    if (getGoogleTokenFromClick()) return;
+    setAuthStatus("loading");
+    setAuthAttempt((attempt) => attempt + 1);
+  }
+
   async function restore(event) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -731,8 +758,18 @@ export function ManageDialog({ cloudOnly, ledger, onClose, done, notify }) {
           {DRIVE_FILE_NAME}」。
         </p>
         <div className="action-row">
-          <GlassButton className="primary" onClick={getGoogleTokenFromClick}>
-            {ledger.cloudReady ? "重新授权" : "连接 Google Drive"}
+          <GlassButton
+            className="primary"
+            onClick={connect}
+            disabled={authStatus === "loading"}
+          >
+            {authStatus === "loading"
+              ? "正在加载 Google 授权…"
+              : authStatus === "unavailable"
+                ? "重试加载 Google 授权"
+                : ledger.cloudReady
+                  ? "重新授权"
+                  : "连接 Google Drive"}
           </GlassButton>
           {ledger.cloudReady && (
             <>
@@ -741,6 +778,11 @@ export function ManageDialog({ cloudOnly, ledger, onClose, done, notify }) {
             </>
           )}
         </div>
+        {authStatus === "unavailable" && (
+          <p role="status">
+            暂时无法连接 Google 授权服务。本地账本可以继续使用。
+          </p>
+        )}
       </section>
       {!cloudOnly && (
         <>

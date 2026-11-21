@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/main.jsx --bundle --minify --jsx=automatic --target=safari16,chrome105,firefox115 --outfile=assets/ledger-app.js"
+    "build": "node scripts/build.mjs"
   },
   "dependencies": {
     "react": "19.3.1",

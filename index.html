@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="随手账本">
-  <meta name="description" content="不注册、不上传，收入支出只存在你的设备上。">
+  <meta name="description" content="私人记账，支持 Google Drive 云端同步与本地备份。">
   <link rel="manifest" href="./manifest.webmanifest">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
@@ -330,6 +330,10 @@
     @media(max-width:420px){.compose-fab{width:58px;height:58px;right:calc(17px + env(safe-area-inset-right, 0px));bottom:calc(19px + env(safe-area-inset-bottom, 0px));}}
     @media(prefers-reduced-motion:reduce){.compose-fab{transition:none;}}
     @media(prefers-reduced-transparency:reduce){.compose-fab{-webkit-backdrop-filter:none;backdrop-filter:none;}}
+    /* Cloud entry stays visible in sticky header, including on narrow iPhones. */
+    .brand-cloud-action{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:0;background:transparent;color:var(--accent);font-size:12px;font-weight:750;line-height:1.35;padding:3px 0 0;text-align:left;cursor:pointer}
+    .brand-cloud-action:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+    @media(max-width:370px){.brand-cloud-action{font-size:11px}}
     /* Google Drive sync status: visible in all views, compact on iPhone. */
     .cloud-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--glass-border,var(--line));border-radius:15px;background:var(--glass-panel,var(--card));padding:9px 12px;margin:3px 0 16px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
     .cloud-status{display:flex;align-items:center;min-width:0;gap:8px;font-size:12px;color:var(--muted);line-height:1.4}
@@ -351,7 +355,7 @@
     <div class="nav-sticky" id="navSticky">
       <header class="top">
         <button type="button" class="menu-toggle" id="viewMenuBtn" aria-label="打开页面菜单" aria-expanded="false" aria-controls="viewDrawer"><span></span><span></span><span></span></button>
-        <div class="brand"><div class="brand-mark">¥</div><div class="brand-text"><strong>随手账本</strong><small>记录每一笔，清楚每一天</small></div></div>
+        <div class="brand"><div class="brand-mark">¥</div><div class="brand-text"><strong>随手账本</strong><button type="button" class="brand-cloud-action" id="cloudHeaderBtn" aria-label="连接 Google Drive 云盘">☁ 连接云盘</button></div></div>
         <div class="header-actions"><button type="button" class="ghost theme-switch" id="themeBtn" aria-label="切换外观模式" title="切换外观模式">◐ 自动</button></div>
       </header>
       <nav class="view-tabs" id="viewTabs" role="tablist" aria-label="切换记账页面">
@@ -799,6 +803,8 @@
     $('cloudStatusText').textContent=message;
     $('cloudSyncNowBtn').hidden=!cloud.ready;
     $('cloudConnectBtn').textContent=cloud.ready?'重连':'连接云盘';
+    $('cloudHeaderBtn').textContent=cloud.ready?'☁ 已连接 · 同步':'☁ 连接云盘';
+    $('cloudHeaderBtn').setAttribute('aria-label',cloud.ready?'立即同步 Google Drive 账本':'连接 Google Drive 云盘');
     $('cloudManageConnectBtn').textContent=cloud.ready?'重新授权':'连接 Google Drive';
     $('cloudManageSyncBtn').disabled=!cloud.ready;
     $('cloudDisconnectBtn').disabled=!cloud.ready;
@@ -977,6 +983,7 @@
     }catch(err){cloud.authPrompt=false;cloudStateLabel('无法打开 Google 授权：'+err.message,'warning')}
   }
   $('cloudConnectBtn').addEventListener('click',getGoogleTokenFromClick);
+  $('cloudHeaderBtn').addEventListener('click',()=>cloud.ready?syncCloud():getGoogleTokenFromClick());
   $('cloudManageConnectBtn').addEventListener('click',getGoogleTokenFromClick);
   $('cloudSyncNowBtn').addEventListener('click',()=>syncCloud());
   $('cloudManageSyncBtn').addEventListener('click',()=>syncCloud());

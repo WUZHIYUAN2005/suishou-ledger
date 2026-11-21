@@ -1,6 +1,10 @@
-/* 静态页面离线缓存。账目始终仅存于设备本地。 */
-const CACHE_NAME='suishou-ledger-static-v9';
-const ASSETS=['./','./index.html','./cloud.html','./manifest.webmanifest','./icon-192.png','./icon-180.png','./icon-512.png'];
+/* 离线缓存仅包含静态网页资源。 */
+const CACHE_NAME='suishou-ledger-static-v10';
+const ASSETS=[
+  './','./index.html','./cloud.html','./manifest.webmanifest',
+  './icon-192.png','./icon-180.png','./icon-512.png',
+  './assets/ledger-app.js','./assets/ledger-app.css','./assets/cat-avatar.webp','./assets/icloud-cloud.png',
+];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });

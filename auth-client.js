@@ -6,6 +6,7 @@
   const SESSION_KEY = "__suishou_auth_device_session_v1";
   const FRAGMENT = "cloud-auth=";
   let timer;
+  let renewAt = 0;
   let refreshing = null;
   let connectedViaBackend = false;
   const $ = (selector, parent = document) => parent.querySelector(selector);
@@ -58,6 +59,11 @@
       clearTimeout(handle);
     }
   }
+  function scheduleRenew(expiresIn) {
+    renewAt = Date.now() + Math.max(60000, (Number(expiresIn) - 300) * 1000);
+    clearTimeout(timer);
+    timer = setTimeout(() => void renew(), Math.max(1000, renewAt - Date.now()));
+  }
   async function renew() {
     if (refreshing) return refreshing;
     const active = session();
@@ -73,8 +79,7 @@
         window.__suishouCloudActivate(result.access_token, result.expires_in);
         connectedViaBackend = true;
         message("已启用自动续期；下次打开会尝试自动恢复连接");
-        clearTimeout(timer);
-        timer = setTimeout(() => void renew(), Math.max(60000, (Number(result.expires_in) - 300) * 1000));
+        scheduleRenew(result.expires_in);
       } catch (error) {
         if (error.status === 401) {
           localStorage.removeItem(SESSION_KEY);
@@ -82,6 +87,7 @@
           message("长期授权已过期，请重新登录一次", true);
         } else {
           message("暂时无法自动续期：" + error.message + "。本地账目仍然安全。", true);
+          renewAt = Date.now() + 60000;
           clearTimeout(timer);
           timer = setTimeout(() => void renew(), 60000);
         }
@@ -104,8 +110,7 @@
         window.__suishouCloudActivate(data.access_token, data.expires_in);
         connectedViaBackend = true;
         message("长期授权已连接；接下来会自动续期");
-        clearTimeout(timer);
-        timer = setTimeout(() => void renew(), Math.max(60000, (Number(data.expires_in) - 300) * 1000));
+        scheduleRenew(data.expires_in);
       } else {
         await renew();
       }
@@ -199,12 +204,12 @@
     if (!(await loginResponse()) && session()) await renew();
   })();
   window.addEventListener("focus", () => {
-    // Resume refresh when iOS wakes an installed PWA after a long sleep.
-    if (connectedViaBackend && session()) {
+    // Resume a paused iOS PWA only when the access token is near expiry.
+    if (!session() || refreshing) return;
+    if (!connectedViaBackend || Date.now() >= renewAt) void renew();
+    else {
       clearTimeout(timer);
-      timer = setTimeout(() => void renew(), 1000);
-    } else if (session()) {
-      void renew();
+      timer = setTimeout(() => void renew(), Math.max(1000, renewAt - Date.now()));
     }
   });
   // Stop from the original in-app Google Drive "停止同步" button also invalidates the long session.

@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="随手账本">
   <meta name="description" content="不注册、不上传，收入支出只存在你的设备上。">
   <link rel="manifest" href="./manifest.webmanifest">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-180.png">
   <title>随手账本 · 你的私人记账空间</title>
@@ -329,6 +330,20 @@
     @media(max-width:420px){.compose-fab{width:58px;height:58px;right:calc(17px + env(safe-area-inset-right, 0px));bottom:calc(19px + env(safe-area-inset-bottom, 0px));}}
     @media(prefers-reduced-motion:reduce){.compose-fab{transition:none;}}
     @media(prefers-reduced-transparency:reduce){.compose-fab{-webkit-backdrop-filter:none;backdrop-filter:none;}}
+    /* Google Drive sync status: visible in all views, compact on iPhone. */
+    .cloud-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--glass-border,var(--line));border-radius:15px;background:var(--glass-panel,var(--card));padding:9px 12px;margin:3px 0 16px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+    .cloud-status{display:flex;align-items:center;min-width:0;gap:8px;font-size:12px;color:var(--muted);line-height:1.4}
+    .cloud-dot{width:8px;height:8px;border-radius:50%;background:#a2a9b7;flex-shrink:0}
+    .cloud-bar[data-state="ok"] .cloud-dot{background:#31b990}
+    .cloud-bar[data-state="syncing"] .cloud-dot{background:#679be5;box-shadow:0 0 0 4px #679be522}
+    .cloud-bar[data-state="warning"] .cloud-dot{background:#e7aa53}
+    .cloud-status span:last-child{min-width:0;overflow-wrap:anywhere}
+    .cloud-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+    .cloud-action{border-radius:11px;border:1px solid var(--glass-border,var(--line));background:var(--card);color:var(--ink);font-weight:700;font-size:11px;padding:8px 10px;white-space:nowrap;min-height:36px}
+    .cloud-action:disabled{opacity:.5}
+    .cloud-panel p{font-size:12px;line-height:1.75;color:var(--muted)}
+    .cloud-panel strong{color:var(--ink)}
+    @media(max-width:370px){.cloud-bar{padding:8px;gap:5px}.cloud-action{padding:7px;font-size:10px}.cloud-status{font-size:11px}}
   </style>
 </head>
 <body>
@@ -347,6 +362,10 @@
         <button id="tab-members" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="pane-members" data-view-target="members">会员订阅</button>
       </nav>
     </div>
+    <div class="cloud-bar" id="cloudBar" data-state="idle" aria-label="云端同步状态">
+      <div class="cloud-status" role="status" aria-live="polite"><span class="cloud-dot" aria-hidden="true"></span><span id="cloudStatusText">☁ 本地账本 · 尚未连接 Google Drive</span></div>
+      <div class="cloud-actions"><button type="button" class="cloud-action" id="cloudSyncNowBtn" hidden>同步</button><button type="button" class="cloud-action" id="cloudConnectBtn">连接云盘</button></div>
+    </div>
     <div class="view-drawer-backdrop" id="viewDrawerBackdrop" aria-hidden="true"></div>
     <aside class="view-drawer" id="viewDrawer" role="dialog" aria-modal="true" aria-label="页面导航" aria-hidden="true" inert>
       <div class="view-drawer-head"><div><strong>随手账本</strong><small>选择要查看的页面</small></div><button type="button" class="drawer-close" id="drawerCloseBtn" aria-label="关闭菜单">×</button></div>
@@ -358,8 +377,9 @@
         <button type="button" class="drawer-item" data-view-target="members"><span class="drawer-icon">◷</span><span>会员与订阅</span><span class="drawer-arrow">›</span></button>
       </nav>
       <div class="drawer-divider"></div>
+      <button type="button" class="drawer-item" id="cloudMenuBtn"><span class="drawer-icon">☁</span><span>Google Drive 同步</span><span class="drawer-arrow">›</span></button>
       <button type="button" class="drawer-item" id="manageBtn"><span class="drawer-icon">⇧</span><span>数据管理与备份</span><span class="drawer-arrow">›</span></button>
-      <p class="drawer-foot">账目仅保存在当前设备 · 请定期备份</p>
+      <p class="drawer-foot">云端同步需你登录 Google 授权。账目不会上传 GitHub。</p>
     </aside>
     <div class="headline"><div><h1 id="currentViewTitle">我的收支概览</h1><p class="subline" id="currentViewDescription">轻松记账，掌握每一笔钱的去向</p></div>
       <div class="range-actions"><div class="month-box"><button type="button" class="arrow" id="prevMonth" aria-label="上个月">‹</button><input type="month" class="month-input" id="monthInput" aria-label="选择月份"><button type="button" class="arrow" id="nextMonth" aria-label="下个月">›</button></div><button type="button" class="toggle-time" id="allTimeBtn">全部时间</button></div>
@@ -419,7 +439,7 @@
           <p class="feature-note">外币订阅会显示最新参考汇率对应的人民币估值。只有点击「记本次付款」并确认后，才生成一笔按当时汇率固定折算的人民币支出；避免与已有账目重复。到期提醒仅在打开网页时显示。</p>
         </section>
     </section>
-    <p class="footer">数据只保存在当前网页的本地存储中，不需要账号，也不会主动上传账目。<br>更换浏览器、清除网站数据或删除主屏幕网页前，请先在「数据管理」中导出备份。</p>
+    <p class="footer">未连接 Google Drive 时，数据仍只存于当前入口；授权并成功同步后，会保存到你自己的 Google Drive。<br>不同入口需分别授权，建议继续定期导出 JSON 备份。</p>
   </main>
   <button type="button" class="compose-fab" id="addBtn" aria-label="记一笔" title="记一笔">
     <svg aria-hidden="true" viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 4v16M4 12h16"/></svg>
@@ -438,7 +458,12 @@
     </form>
   </div></div>
   <div class="overlay" id="manageOverlay" aria-hidden="true"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="manageTitle"><div class="sheet-header"><h2 id="manageTitle">数据管理</h2><button type="button" class="close" id="closeManageBtn" aria-label="关闭">×</button></div>
-    <div class="notice">账目只存储在当前网页的本地数据区。为防止手机清理缓存、网页被删除或更换设备造成丢失，建议定期导出备份。</div>
+    <div class="notice">未连接云盘前，账目只保存在当前网页。启用 Google Drive 同步后，网页会在有网络且保持授权时自动合并更新；请仍保留定期导出的备份。</div>
+    <section class="management-section cloud-panel" id="cloudManagement"><h3>☁ Google Drive 云端同步</h3>
+      <p id="cloudDetail">使用自己的 Google 账号登录，私人账本会存成 Google Drive 中可见的「随手账本-云端同步.json」文件。首次连接需确认合并本地和云端账目。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="outline" id="cloudManageConnectBtn">连接 Google Drive</button><button type="button" class="outline" id="cloudManageSyncBtn">立即同步</button><button type="button" class="outline" id="cloudDisconnectBtn">停止同步</button></div>
+      <p>只申请 Drive 中由本应用创建或授权访问的文件权限，不会把账目提交到公开 GitHub。Google Drive 的内容不是端到端加密；同步需联网，手机后台不会持续运行，授权过期需再次连接。</p>
+    </section>
     <section class="management-section"><h3>导出账本</h3><p>将收支记录、储值卡余额及会员订阅一并导出为 JSON 文件，保存到 iPhone「文件」App。导出后不自动上传云端。</p><button type="button" class="outline" id="exportBtn">导出 JSON 备份</button></section>
     <section class="management-section"><h3>导入账本</h3><p>从之前导出的 JSON 备份恢复记录。新版备份会覆盖账目、储值卡和会员；旧版备份只替换账目。恢复前请先备份。</p><button type="button" class="outline" id="importBtn">选择备份文件</button><input id="importFile" type="file" accept=".json,application/json" class="hide"></section>
     <section class="management-section"><h3>删除所有记录</h3><p>仅清空此网页的收支明细，不清空储值卡余额或会员资料。不会影响你已经导出的备份文件。</p><button type="button" class="outline danger" id="clearBtn">清空账本</button></section>
@@ -486,6 +511,10 @@
   const DB_KEY = 'suishou-ledger.records.v1';
   const PREF_KEY = 'suishou-ledger.prefs.v1';
   const EXTRAS_KEY = 'suishou-ledger.extras.v1';
+  const CLOUD_META_KEY = 'suishou-ledger.cloud-meta.v1';
+  const DRIVE_CLIENT_ID = '623321438376-t93joh0ms0fb806lp043k9mrub8o3f6c.apps.googleusercontent.com';
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+  const DRIVE_FILE_NAME = '随手账本-云端同步.json';
   const CURRENCIES = [
     {code:'CNY',name:'人民币',digits:2},{code:'USD',name:'美元',digits:2},{code:'EUR',name:'欧元',digits:2},
     {code:'HKD',name:'港币',digits:2},{code:'JPY',name:'日元',digits:0},{code:'GBP',name:'英镑',digits:2},
@@ -633,7 +662,7 @@
   }
   function readLocal(key,fallback){try{const s=localStorage.getItem(key);return s===null?fallback:JSON.parse(s)}catch(e){console.warn('读取失败',e);return fallback;}}
   function saveRecords(){
-    try{localStorage.setItem(DB_KEY,JSON.stringify(state.records));return true}
+    try{localStorage.setItem(DB_KEY,JSON.stringify(state.records));noteLocalWrite();return true}
     catch(e){window.alert('无法写入本地存储。请确认不是无痕模式、浏览器有可用空间，并使用 HTTPS 网页打开。');return false}
   }
   function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify({statsCurrency:state.statsCurrency}))}catch(e){/* Ignore preference persistence failure */}}
@@ -688,13 +717,282 @@
       oldRecords=localStorage.getItem(DB_KEY);oldExtras=localStorage.getItem(EXTRAS_KEY);
       localStorage.setItem(DB_KEY,JSON.stringify(state.records));
       localStorage.setItem(EXTRAS_KEY,JSON.stringify({cards:state.cards,memberships:state.memberships}));
-      return true;
+      noteLocalWrite();return true;
     }catch(e){
       try{if(oldRecords===null)localStorage.removeItem(DB_KEY);else localStorage.setItem(DB_KEY,oldRecords);
         if(oldExtras===null)localStorage.removeItem(EXTRAS_KEY);else localStorage.setItem(EXTRAS_KEY,oldExtras);}catch(_){}
       alert('无法保存本地数据，请检查 iPhone 存储空间或浏览器模式。');return false;
     }
   }
+
+  // PRIVATE CLOUD SYNC: The access token stays in memory. No token, private data,
+  // client secret or credentials are committed to GitHub. Google Drive stores one
+  // visible JSON file created with drive.file access.
+  const CLOUD_TYPES=['records','cards','memberships'];
+  const emptyCloudMeta=()=>({versions:{records:{},cards:{},memberships:{}},deleted:{records:{},cards:{},memberships:{}}});
+  function sanitizeMeta(raw){
+    const out=emptyCloudMeta();
+    for(const part of ['versions','deleted'])for(const kind of CLOUD_TYPES){
+      const items=raw?.[part]?.[kind];
+      if(!items||typeof items!=='object'||Array.isArray(items))continue;
+      for(const [id,stamp] of Object.entries(items)){
+        if(id.length>100||!stamp||typeof stamp!=='object')continue;
+        if(Number.isSafeInteger(stamp.time)&&stamp.time>=0&&stamp.time<9000000000000000&&typeof stamp.origin==='string'&&stamp.origin.length<=100)
+          out[part][kind][id]={time:stamp.time,origin:stamp.origin};
+      }
+    }
+    return out;
+  }
+  const CLOUD_ORIGIN_KEY='suishou-ledger.cloud-device.v1';
+  let cloudOrigin='';
+  try{cloudOrigin=localStorage.getItem(CLOUD_ORIGIN_KEY)||makeId();localStorage.setItem(CLOUD_ORIGIN_KEY,cloudOrigin)}
+  catch(_){cloudOrigin=makeId()}
+  let cloudMeta=sanitizeMeta(readLocal(CLOUD_META_KEY,null));
+  let cloudBaseline=null;
+  let cloudSeq=0;
+  const cloud={token:'',expiresAt:0,fileId:'',fileVersion:'',ready:false,busy:false,queued:false,initialized:false,timer:null,tokenClient:null,authPrompt:false,lastSync:0};
+  function cloneContents(){return {records:structuredClone(state.records),cards:structuredClone(state.cards),memberships:structuredClone(state.memberships)}}
+  function sameContent(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+  function cloudStamp(){return {time:Date.now(),origin:cloudOrigin}}
+  function compareStamps(a,b){
+    if(!a)return b?-1:0;if(!b)return 1;
+    return a.time-b.time||a.origin.localeCompare(b.origin);
+  }
+  function ensureCloudVersions(data,meta){
+    for(const kind of CLOUD_TYPES)for(const item of data[kind]){
+      const prev=meta.versions[kind][item.id],del=meta.deleted[kind][item.id];
+      if(prev)continue;
+      let t=kind==='records'?Date.parse(item.createdAt||'')||1:1;
+      t=Math.max(1,Math.min(Date.now(),t));
+      meta.versions[kind][item.id]=compareStamps({time:t,origin:'legacy'},del)>0?{time:t,origin:'legacy'}:del;
+    }
+  }
+  cloudBaseline=cloneContents();ensureCloudVersions(cloudBaseline,cloudMeta);
+  function saveCloudMeta(){
+    try{localStorage.setItem(CLOUD_META_KEY,JSON.stringify(cloudMeta));return true}
+    catch(_){console.error('同步元数据无法写入');return false}
+  }
+  saveCloudMeta();
+  function noteLocalWrite(){
+    if(!cloudBaseline)return;
+    const after=cloneContents();
+    for(const kind of CLOUD_TYPES){
+      const beforeIds=new Map(cloudBaseline[kind].map(item=>[item.id,item]));
+      const afterIds=new Map(after[kind].map(item=>[item.id,item]));
+      for(const item of after[kind]){
+        const prior=beforeIds.get(item.id);
+        if(!prior||!sameContent(prior,item)){
+          cloudMeta.versions[kind][item.id]=cloudStamp();
+          delete cloudMeta.deleted[kind][item.id];
+        }
+      }
+      for(const item of cloudBaseline[kind])if(!afterIds.has(item.id)){
+        cloudMeta.deleted[kind][item.id]=cloudStamp();
+        delete cloudMeta.versions[kind][item.id];
+      }
+    }
+    cloudBaseline=after;cloudSeq++;saveCloudMeta();
+    if(cloud.ready)scheduleCloudSync(750);
+  }
+  function cloudStateLabel(message,kind='idle'){
+    $('cloudBar').dataset.state=kind;
+    $('cloudStatusText').textContent=message;
+    $('cloudSyncNowBtn').hidden=!cloud.ready;
+    $('cloudConnectBtn').textContent=cloud.ready?'重连':'连接云盘';
+    $('cloudManageConnectBtn').textContent=cloud.ready?'重新授权':'连接 Google Drive';
+    $('cloudManageSyncBtn').disabled=!cloud.ready;
+    $('cloudDisconnectBtn').disabled=!cloud.ready;
+    $('cloudDetail').textContent=message+'。云端文件：'+DRIVE_FILE_NAME;
+  }
+  cloudStateLabel('☁ 本地账本 · 尚未连接 Google Drive');
+  function localCloudPack(){
+    const data=cloneContents();const meta=sanitizeMeta(cloudMeta);ensureCloudVersions(data,meta);
+    return {app:'随手账本',syncVersion:1,savedAt:new Date().toISOString(),records:data.records,cards:data.cards,memberships:data.memberships,meta};
+  }
+  function checkedCloudPack(json){
+    if(!json||json.app!=='随手账本'||json.syncVersion!==1)throw new Error('云端文件内容不属于随手账本同步格式，已停止上传以防覆盖');
+    const records=validateRecords(json.records),cards=validateCards(json.cards),memberships=validateMemberships(json.memberships);
+    const meta=sanitizeMeta(json.meta);const data={records,cards,memberships};ensureCloudVersions(data,meta);
+    return {app:'随手账本',syncVersion:1,savedAt:json.savedAt||'',...data,meta};
+  }
+  function mergeCloudPacks(local,remote){
+    const base={app:'随手账本',syncVersion:1,savedAt:new Date().toISOString(),records:[],cards:[],memberships:[],meta:emptyCloudMeta()};
+    for(const kind of CLOUD_TYPES){
+      const left=new Map(local[kind].map(x=>[x.id,x]));
+      const right=new Map(remote[kind].map(x=>[x.id,x]));
+      const ids=new Set([...left.keys(),...right.keys(),...Object.keys(local.meta.deleted[kind]),...Object.keys(remote.meta.deleted[kind])]);
+      for(const id of ids){
+        const lv=local.meta.versions[kind][id],rv=remote.meta.versions[kind][id],ld=local.meta.deleted[kind][id],rd=remote.meta.deleted[kind][id];
+        const version=compareStamps(lv,rv)>=0?lv:rv;
+        const deleted=compareStamps(ld,rd)>=0?ld:rd;
+        if(deleted&&compareStamps(deleted,version)>=0){base.meta.deleted[kind][id]=deleted;continue;}
+        if(!version)continue;
+        const side=compareStamps(lv,rv)>=0?'local':'remote';
+        const item=(side==='local'?left:right).get(id)||(side==='local'?right:left).get(id);
+        if(item){base[kind].push(item);base.meta.versions[kind][id]=version;}
+      }
+    }
+    return base;
+  }
+  function packComparable(pack){
+    const meta=emptyCloudMeta();
+    for(const part of ['versions','deleted'])for(const kind of CLOUD_TYPES){
+      meta[part][kind]=Object.fromEntries(Object.entries(pack.meta[part][kind]).sort(([a],[b])=>a.localeCompare(b)));
+    }
+    return JSON.stringify({records:[...pack.records].sort((a,b)=>a.id.localeCompare(b.id)),cards:[...pack.cards].sort((a,b)=>a.id.localeCompare(b.id)),memberships:[...pack.memberships].sort((a,b)=>a.id.localeCompare(b.id)),meta});
+  }
+  function persistCloudMerge(pack){
+    const prev=cloneContents(),prevMeta=cloudMeta;
+    const prior={r:localStorage.getItem(DB_KEY),e:localStorage.getItem(EXTRAS_KEY),m:localStorage.getItem(CLOUD_META_KEY)};
+    try{
+      localStorage.setItem(DB_KEY,JSON.stringify(pack.records));
+      localStorage.setItem(EXTRAS_KEY,JSON.stringify({cards:pack.cards,memberships:pack.memberships}));
+      localStorage.setItem(CLOUD_META_KEY,JSON.stringify(pack.meta));
+      state.records=pack.records;state.cards=pack.cards;state.memberships=pack.memberships;
+      cloudMeta=pack.meta;cloudBaseline=cloneContents();
+      renderAll();renderExtras();return true;
+    }catch(err){
+      for(const [key,raw] of [[DB_KEY,prior.r],[EXTRAS_KEY,prior.e],[CLOUD_META_KEY,prior.m]])try{
+        if(raw===null)localStorage.removeItem(key);else localStorage.setItem(key,raw);
+      }catch(_){}
+      state.records=prev.records;state.cards=prev.cards;state.memberships=prev.memberships;
+      cloudMeta=prevMeta;cloudBaseline=cloneContents();
+      cloudStateLabel('本地保存失败，未覆盖云端；请检查空间并导出备份','warning');return false;
+    }
+  }
+  function driveHeaders(json=false){return {'Authorization':'Bearer '+cloud.token,...(json?{'Content-Type':'application/json; charset=UTF-8'}:{})}}
+  async function driveRequest(url,options={}){
+    if(!navigator.onLine)throw new Error('网络未连接，数据保存在本地');
+    if(!cloud.token||Date.now()>cloud.expiresAt-30000)throw new Error('Google 授权已过期，请点击「重连」继续同步');
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+    try{
+      const res=await fetch(url,{...options,headers:{...driveHeaders(),...(options.headers||{})},signal:controller.signal});
+      if(res.status===401||res.status===403){
+        let errBody='';try{errBody=(await res.clone().json())?.error?.message||''}catch(_){}
+        if(res.status===401)throw new Error('Google 授权已过期，请重新连接');
+        throw new Error('Google Drive 权限不足：'+(errBody||'请确认已启用 Drive API 和授权 drive.file 权限'));
+      }
+      if(!res.ok){let body='';try{body=(await res.text()).slice(0,160)}catch(_){}throw new Error('Drive 请求失败 ('+res.status+') '+body)}
+      return res.status===204?null:await res.json();
+    }catch(err){if(err.name==='AbortError')throw new Error('请求超时，请检查网络');throw err}
+    finally{clearTimeout(timer)}
+  }
+  const DRIVE_API='https://www.googleapis.com/drive/v3';
+  async function findCloudFile(){
+    if(cloud.fileId)return cloud.fileId;
+    const q="name = '"+DRIVE_FILE_NAME+"' and trashed = false";
+    const url=DRIVE_API+'/files?'+new URLSearchParams({q,fields:'nextPageToken,files(id,name,mimeType,version,modifiedTime)',pageSize:'100',spaces:'drive'});
+    const data=await driveRequest(url);
+    const matches=(data.files||[]).filter(x=>x.name===DRIVE_FILE_NAME&&x.mimeType==='application/json');
+    if(data.nextPageToken||matches.length>1)throw new Error('找到多个同名云端账本或列表未完整，请先在 Drive 中检查，避免误覆盖');
+    if(matches.length){cloud.fileId=matches[0].id;cloud.fileVersion=matches[0].version||'';return cloud.fileId}
+    return null;
+  }
+  async function createCloudFile(pack){
+    const boundary='ledgerSync'+Math.random().toString(36).slice(2);
+    const metadata={name:DRIVE_FILE_NAME,mimeType:'application/json',description:'随手账本私人账目同步文件，请勿手动修改'};
+    const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(pack)+'\r\n--'+boundary+'--';
+    const data=await driveRequest('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,version',{
+      method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body
+    });
+    if(!data?.id)throw new Error('Google Drive 没有返回文件 ID');
+    cloud.fileId=data.id;cloud.fileVersion=data.version||'';
+  }
+  async function fetchCloudFile(){
+    const metadata=await driveRequest(DRIVE_API+'/files/'+encodeURIComponent(cloud.fileId)+'?fields=id,name,version,modifiedTime');
+    const data=await driveRequest(DRIVE_API+'/files/'+encodeURIComponent(cloud.fileId)+'?alt=media');
+    return {version:metadata.version||'',pack:checkedCloudPack(data)};
+  }
+  async function updateCloudFile(pack){
+    const data=await driveRequest('https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(cloud.fileId)+'?uploadType=media&fields=id,version',{
+      method:'PATCH',headers:{'Content-Type':'application/json; charset=UTF-8'},body:JSON.stringify(pack)
+    });
+    cloud.fileVersion=data?.version||cloud.fileVersion;
+  }
+  function scheduleCloudSync(delay=900){
+    if(!cloud.ready)return;
+    clearTimeout(cloud.timer);cloud.timer=setTimeout(()=>{if(document.visibilityState==='visible')syncCloud().catch(()=>{});},delay);
+  }
+  async function syncCloud(first=false){
+    if(!cloud.ready)return;
+    if(cloud.busy){cloud.queued=true;return;}
+    if(document.visibilityState==='hidden')return;
+    cloud.busy=true;first=first||!cloud.initialized;const startingSeq=cloudSeq;
+    cloudStateLabel('☁ 正在同步 Google Drive…','syncing');
+    try{
+      const id=await findCloudFile();
+      if(startingSeq!==cloudSeq){scheduleCloudSync(250);return;}
+      const local=localCloudPack();
+      if(!id){
+        if(first&&!confirm('将此入口的 '+local.records.length+' 笔账目、'+local.cards.length+' 张储值卡和 '+local.memberships.length+' 项会员上传到 Google Drive，作为云端账本。确定继续吗？')){cloud.ready=false;cloudStateLabel('尚未启用云端同步（本地数据未变）','warning');return;}
+        await createCloudFile(local);
+        if(startingSeq!==cloudSeq){scheduleCloudSync(250);return;}
+        cloud.initialized=true;cloud.lastSync=Date.now();cloudStateLabel('☁ 已同步 · 云端已建立','ok');return;
+      }
+      const remote=await fetchCloudFile();
+      if(startingSeq!==cloudSeq){scheduleCloudSync(250);return;}
+      if(first&&(local.records.length||local.cards.length||local.memberships.length)&&
+         (remote.pack.records.length||remote.pack.cards.length||remote.pack.memberships.length)){
+        const msg='首次连接：本地有 '+local.records.length+' 笔账目，云端有 '+remote.pack.records.length+
+          ' 笔账目。将按记录 ID 合并两边不同的账目、储值卡及会员。相同 ID 的内容会采用最近修改版本。建议先导出两边的重要备份。现在合并吗？';
+        if(!confirm(msg)){cloud.ready=false;cloudStateLabel('未执行首次合并（本地数据未变）','warning');return;}
+      }
+      let merged=mergeCloudPacks(local,remote.pack);
+      const changedRemote=packComparable(merged)!==packComparable(remote.pack);
+      if(changedRemote){
+        // Recheck remote version immediately before upload. This reduces overwrites,
+        // but Google Drive single-file updates are not an atomic multi-client DB.
+        const latest=await fetchCloudFile();
+        if(startingSeq!==cloudSeq){scheduleCloudSync(250);return;}
+        merged=mergeCloudPacks(local,latest.pack);
+        if(packComparable(merged)!==packComparable(latest.pack))await updateCloudFile(merged);
+      }
+      if(startingSeq!==cloudSeq){scheduleCloudSync(250);return;}
+      if(!persistCloudMerge(merged))return;
+      cloud.initialized=true;cloud.lastSync=Date.now();cloudStateLabel('☁ 已同步 · '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),'ok');
+    }catch(err){
+      cloudStateLabel('☁ '+(err?.message||'同步失败，数据已保存在本机'),'warning');
+      console.warn('Google Drive 同步失败',err);
+    }finally{cloud.busy=false;if(cloud.queued){cloud.queued=false;scheduleCloudSync(500)}}
+  }
+  function getGoogleTokenFromClick(){
+    if(!window.google?.accounts?.oauth2){alert('Google 授权服务尚未加载。请用 Safari 打开本站，检查网络，稍后再试。');return;}
+    if(cloud.authPrompt)return;
+    cloud.authPrompt=true;
+    try{
+      cloud.tokenClient=google.accounts.oauth2.initTokenClient({
+        client_id:DRIVE_CLIENT_ID,scope:DRIVE_SCOPE,
+        callback:(response)=>{
+          cloud.authPrompt=false;
+          if(!response?.access_token){cloudStateLabel('Google 授权失败或取消，请重试','warning');return;}
+          cloud.token=response.access_token;
+          cloud.expiresAt=Date.now()+Math.max(60,Number(response.expires_in)||3600)*1000;
+          cloud.fileId='';cloud.ready=true;cloud.initialized=false;
+          cloudStateLabel('☁ Google 已授权 · 正在读取云端账本','syncing');
+          syncCloud(true);
+        },
+        error_callback:()=>{cloud.authPrompt=false;cloudStateLabel('Google 登录弹窗未完成，请用 Safari 重试','warning');}
+      });
+      cloud.tokenClient.requestAccessToken({prompt:'consent'});
+    }catch(err){cloud.authPrompt=false;cloudStateLabel('无法打开 Google 授权：'+err.message,'warning')}
+  }
+  $('cloudConnectBtn').addEventListener('click',getGoogleTokenFromClick);
+  $('cloudManageConnectBtn').addEventListener('click',getGoogleTokenFromClick);
+  $('cloudSyncNowBtn').addEventListener('click',()=>syncCloud());
+  $('cloudManageSyncBtn').addEventListener('click',()=>syncCloud());
+  $('cloudDisconnectBtn').addEventListener('click',()=>{
+    clearTimeout(cloud.timer);
+    const lastToken=cloud.token;
+    cloud.ready=false;cloud.initialized=false;cloud.token='';cloud.expiresAt=0;cloud.fileId='';
+    try{if(lastToken)google?.accounts?.oauth2?.revoke(lastToken,()=>{});}catch(_){}
+    cloudStateLabel('☁ 已停止同步 · 账目仍保存在本机及已写入的 Google Drive 文件','idle');
+  });
+  $('cloudMenuBtn').addEventListener('click',()=>{closeViewMenu(false);openOverlay($('manageOverlay'));$('cloudManagement').scrollIntoView({block:'nearest'});});
+  setInterval(()=>{if(cloud.ready&&document.visibilityState==='visible')syncCloud()},15000);
+  window.addEventListener('online',()=>scheduleCloudSync(1200));
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')scheduleCloudSync(500)});
+  window.addEventListener('focus',()=>scheduleCloudSync(600));
+
   function renderExtras(){
     const todayKey=localDatetime().slice(0,10);
     const soonCount=state.memberships.filter(m=>m.active&&m.nextDate>=todayKey&&Math.round((new Date(m.nextDate+'T12:00')-new Date(todayKey+'T12:00'))/86400000)<=7).length;

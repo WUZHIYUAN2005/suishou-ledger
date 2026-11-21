@@ -1,8 +1,10 @@
+import { readCovers } from "./covers.js";
 import {
   CATEGORY,
   commit,
   estimateCny,
   getCnyRate,
+  getSnapshot,
   localDatetime,
   localMonth,
   makeId,
@@ -297,6 +299,10 @@ export function downloadBackup() {
     cards,
     memberships,
   };
+  downloadBackupFile(data, "备份");
+}
+
+function downloadBackupFile(data, label) {
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(data, null, 2)], {
       type: "application/json;charset=utf-8",
@@ -304,11 +310,40 @@ export function downloadBackup() {
   );
   const link = document.createElement("a");
   link.href = url;
-  link.download = `随手账本备份-${localMonth()}-${localDatetime().slice(8, 10)}.json`;
+  link.download = `随手账本${label}-${localMonth()}-${localDatetime().slice(8, 10)}.json`;
   document.body.append(link);
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+export async function downloadMigrationBackup() {
+  const { records, cards, memberships, storageError } = getSnapshot();
+  if (storageError) throw new Error(storageError);
+  const ids = new Set(cards.map(({ id }) => id));
+  const covers = [];
+  for (const [id, blob] of await readCovers()) {
+    if (!ids.has(id)) continue;
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("无法读取一张卡片的封面"));
+      reader.readAsDataURL(blob);
+    });
+    covers.push({ id, data });
+  }
+  downloadBackupFile(
+    {
+      app: "随手账本",
+      version: 3,
+      exportedAt: new Date().toISOString(),
+      records,
+      cards,
+      memberships,
+      covers,
+    },
+    "迁移备份",
+  );
 }
 
 export async function importBackup(file) {

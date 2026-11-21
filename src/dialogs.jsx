@@ -25,6 +25,7 @@ import {
   deleteEntry,
   deleteMember,
   downloadBackup,
+  downloadMigrationBackup,
   importBackup,
   saveCard,
   saveEntry,
@@ -902,6 +903,20 @@ export function ManageDialog({ cloudOnly, ledger, onClose, done, notify }) {
     setAuthAttempt((attempt) => attempt + 1);
   }
 
+  async function migrationBackup() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await downloadMigrationBackup();
+      notify("迁移备份已准备下载");
+    } catch (failure) {
+      setError(errorText(failure));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function restore(event) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -991,6 +1006,11 @@ export function ManageDialog({ cloudOnly, ledger, onClose, done, notify }) {
             >
               导出 JSON 备份
             </GlassButton>
+            <div className="action-row" style={{ marginTop: 8 }}>
+              <GlassButton disabled={busy} onClick={migrationBackup}>
+                导出迁移备份（含封面）
+              </GlassButton>
+            </div>
           </section>
           <section className="management-section">
             <h3>导入账本</h3>

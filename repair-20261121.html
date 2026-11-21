@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>随手账本 · 版本修复</title>
+<style>
+:root{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;background:#f5f7fb;color:#24304a}
+*{box-sizing:border-box}body{margin:0;min-height:100svh;padding:calc(35px + env(safe-area-inset-top)) 20px 36px;background:linear-gradient(145deg,#eef2ff 0%,#f9fbff 60%,#fff5eb 100%)}
+main{max-width:520px;margin:auto;background:#ffffffdb;border:1px solid #e4e8f2;border-radius:24px;box-shadow:0 12px 40px #1e2a4b13;padding:24px}
+h1{font-size:23px;margin:12px 0 8px}p{line-height:1.8;font-size:14px;color:#647089}.icon{display:grid;place-items:center;width:50px;height:50px;border-radius:15px;background:#263d8c;color:white;font-size:27px}
+#status{padding:12px 14px;border-radius:12px;border:1px solid #e4e7ee;background:#f7f9fd;min-height:48px;font-size:14px;line-height:1.65;overflow-wrap:anywhere}
+.actions{display:grid;gap:10px;margin-top:18px}
+button,a.primary{appearance:none;display:block;text-align:center;text-decoration:none;border-radius:14px;border:0;font-size:15px;font-weight:700;padding:15px;cursor:pointer}
+button{background:#4967df;color:white}
+button:disabled{opacity:.55;cursor:default}
+a.primary{background:#edf1ff;color:#2c49b7}
+.small{font-size:12px;color:#78849b;margin:18px 0 0}
+@media(prefers-color-scheme:dark){:root{background:#101725;color:#f1f5ff}body{background:linear-gradient(130deg,#101a35,#121927 75%,#2d241e)}main{background:#1c2734e6;border-color:#354255;box-shadow:none}p,.small{color:#afbed0}#status{background:#121f31;border-color:#34445b}a.primary{background:#2e405f;color:#e8efff}}
+</style>
+</head>
+<body>
+<main>
+<div class="icon" aria-hidden="true">¥</div>
+<h1>随手账本 · 版本修复</h1>
+<p>这是独立的修复入口，用于解决 iPhone Safari 一直打开几个月前旧页面的问题。只清理本应用的<strong>静态网页缓存</strong>与旧 Service Worker，不删除本地账单、储值卡或会员资料。</p>
+<div id="status" role="status" aria-live="polite">准备检查当前浏览器的离线缓存。</div>
+<div class="actions">
+<button type="button" id="repair">修复旧版本缓存（保留所有账目）</button>
+<a class="primary" id="openNew" href="./cloud.html?build=20261121-cloud-repair" rel="noopener">打开最新云端同步版</a>
+</div>
+<p class="small">请在 Safari 地址栏打开此页面，而不是 ChatGPT 内置浏览器。两者的本地账目相互独立。修复不会将它们自动合并，仍需要之后授权 Google Drive。</p>
+</main>
+<script>
+(function(){
+'use strict';
+const message=document.getElementById('status');
+const button=document.getElementById('repair');
+function show(text){message.textContent=text;}
+let recordInfo='';
+try{
+ const s=localStorage.getItem('suishou-ledger.records.v1');
+ if(s){const a=JSON.parse(s);if(Array.isArray(a))recordInfo='此 Safari 网站存储区有 '+a.length+' 笔本地账目，修复不会删除它们。';}
+}catch(e){recordInfo='本地账目检查未完成；修复不会读写或删除账目。';}
+show((recordInfo?recordInfo+' ':'')+'点击下方按钮刷新静态缓存。');
+button.addEventListener('click',async()=>{
+ button.disabled=true;
+ show('正在注销随手账本旧版离线缓存…');
+ let removedWorkers=0,removedCaches=0,errors=[];
+ try{
+   if('serviceWorker' in navigator){
+     const regs=await navigator.serviceWorker.getRegistrations();
+     const appScope=new URL('./',location.href).href;
+     for(const reg of regs){
+       if(reg.scope.startsWith(appScope)){
+         try{if(await reg.unregister())removedWorkers++;}catch(e){errors.push('旧工作线程未完全注销');}
+       }
+     }
+   }
+ }catch(e){errors.push('无法检查 Service Worker');}
+ try{
+   if('caches' in window){
+     const names=await caches.keys();
+     for(const name of names){
+       if(name.startsWith('suishou-ledger-static-')){
+         try{if(await caches.delete(name))removedCaches++;}catch(e){errors.push('缓存 '+name+' 未能移除');}
+       }
+     }
+   }
+ }catch(e){errors.push('无法检查缓存');}
+ const lines=['修复操作已结束：注销旧工作线程 '+removedWorkers+' 个，清除静态缓存 '+removedCaches+' 份。','本地账单、会员、储值卡和浏览器本地存储均未删除。'];
+ if(errors.length)lines.push('部分操作未完成：'+errors.join('、')+'。可尝试关闭 Safari 后重开。');
+ lines.push('现在点击「打开最新云端同步版」。');
+ show(lines.join('\n'));
+ button.textContent='再次修复缓存';
+ button.disabled=false;
+});
+})();
+</script>
+</body>
+</html>

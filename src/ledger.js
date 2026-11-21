@@ -1087,6 +1087,21 @@ function loadGoogleAuthorization() {
   return googleAuthorizationRequest;
 }
 
+// Short-lived access tokens delivered by our optional private refresh broker.
+// The Worker never receives ledger records and the browser never receives a Google refresh token.
+window.__suishouCloudActivate = (accessToken, expiresIn) => {
+  if (typeof accessToken !== "string" || !accessToken) return false;
+  clearTimeout(cloud.timer);
+  cloud.drive?.close();
+  const expiresAt = Date.now() + Math.max(10, Number(expiresIn) || 3600) * 1000 - 5000;
+  cloud = makeCloudSession(
+    createDriveClient(accessToken, expiresAt, DRIVE_FILE_NAME),
+    accessToken,
+  );
+  void inspectCloud(cloud);
+  return true;
+};
+
 function getGoogleTokenFromClick() {
   if (!window.google?.accounts?.oauth2?.initTokenClient) return false;
   if (authPrompt || cloud.busy) return true;

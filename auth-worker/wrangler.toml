@@ -1,0 +1,16 @@
+# A dedicated private OAuth backend. Does not store ledger records.
+name = "suishou-ledger-auth"
+main = "worker.mjs"
+compatibility_date = "2026-11-21"
+workers_dev = true
+
+[vars]
+APP_ORIGIN = "https://wuzhiyuan2005.github.io"
+APP_RETURN_URL = "https://wuzhiyuan2005.github.io/suishou-ledger/cloud.html"
+# Replace with the Worker URL created in your own Cloudflare account.
+WORKER_BASE_URL = "https://REPLACE-YOUR-WORKER.workers.dev"
+
+[[kv_namespaces]]
+binding = "AUTH_KV"
+# Obtain your real KV ID with: npx wrangler kv namespace create AUTH_KV
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"

@@ -177,7 +177,7 @@ async function callback(request, env, callbackUrl) {
     created: Date.now(),
   }), { expirationTtl: SESSION_TTL });
   const exchange = randomToken();
-  await env.AUTH_KV.put("exchange:" + await digest(exchange), await seal(session, env), { expirationTtl: TEMP_TTL });
+  await env.AUTH_KV.put("exchange:" + await digest(exchange), await seal(JSON.stringify({ session, access_token: tokens.access_token, expires_in: Number(tokens.expires_in) || 3600 }), env), { expirationTtl: TEMP_TTL });
   // The one-time code is in the URL fragment: the hosting server never receives it.
   return redirect(env.APP_RETURN_URL.split("#")[0] + "#cloud-auth=" + encodeURIComponent(exchange));
 }
@@ -192,8 +192,8 @@ async function exchange(request, env) {
   const stored = await env.AUTH_KV.get(key);
   if (!stored) return responseJSON({ error: "Login code expired; reconnect" }, 401, request, env);
   await env.AUTH_KV.delete(key);
-  const session = await unseal(stored, env);
-  return responseJSON({ session, expires_in: SESSION_TTL }, 200, request, env);
+  const credential = JSON.parse(await unseal(stored, env));
+  return responseJSON({ ...credential, session_expires_in: SESSION_TTL }, 200, request, env);
 }
 async function refresh(request, env) {
   assertOrigin(request, env);

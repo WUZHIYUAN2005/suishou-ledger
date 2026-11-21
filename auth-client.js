@@ -100,7 +100,15 @@
       const data = await request("/api/exchange", { code: oneTimeCode });
       if (!/^[A-Za-z0-9_-]{43}$/.test(data.session || "")) throw new Error("会话凭证无效");
       localStorage.setItem(SESSION_KEY, data.session);
-      await renew();
+      if (data.access_token && Number(data.expires_in) > 0 && typeof window.__suishouCloudActivate === "function") {
+        window.__suishouCloudActivate(data.access_token, data.expires_in);
+        connectedViaBackend = true;
+        message("长期授权已连接；接下来会自动续期");
+        clearTimeout(timer);
+        timer = setTimeout(() => void renew(), Math.max(60000, (Number(data.expires_in) - 300) * 1000));
+      } else {
+        await renew();
+      }
     } catch (error) {
       message("授权未完成：" + error.message, true);
       alert("Google 长期授权未完成：" + error.message + "。原有本地账目没有修改。");

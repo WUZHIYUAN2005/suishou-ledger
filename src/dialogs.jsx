@@ -1,16 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  BACKUP_FREQUENCIES,
   CATEGORY,
+  createBackupFolder,
   disconnectCloud,
   DRIVE_FILE_NAME,
   estimateCny,
   getCnyRate,
   getGoogleTokenFromClick,
+  listBackupFolders,
   loadGoogleAuthorization,
   localDatetime,
   money,
   moneyDef,
   parseMoney,
+  setBackupFolder,
+  setBackupFrequency,
   syncCloud,
 } from "./ledger.js";
 import {
@@ -688,6 +693,185 @@ export function CoverDialog({ card, existing, update, onClose, done }) {
   );
 }
 
+function DriveLocation({ ledger }) {
+  const [folders, setFolders] = useState(null);
+  const [selected, setSelected] = useState("");
+  const [name, setName] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function change(action) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await action();
+    } catch (failure) {
+      setError(errorText(failure));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <p>
+        当前备份位置：
+        <strong>
+          {ledger.cloudFolderName || "Google Drive 中的当前文件夹"}
+        </strong>
+      </p>
+      <div className="action-row">
+        {!folders && (
+          <GlassButton
+            disabled={busy || ledger.cloudBusy}
+            onClick={() =>
+              change(async () => setFolders(await listBackupFolders()))
+            }
+          >
+            {busy ? "正在加载文件夹…" : "更改备份位置"}
+          </GlassButton>
+        )}
+      </div>
+      {ledger.cloudFileId && (
+        <p>
+          <a
+            href={`https://drive.google.com/open?id=${encodeURIComponent(ledger.cloudFileId)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            在 Google Drive 中打开备份文件
+          </a>
+        </p>
+      )}
+      {folders && (
+        <>
+          <Field label="备份文件夹">
+            <Select
+              value={selected}
+              onChange={(event) => setSelected(event.target.value)}
+              disabled={busy || ledger.cloudBusy}
+            >
+              <option value="">请选择文件夹</option>
+              {folders.map((folder) => (
+                <option key={folder.id} value={folder.id}>
+                  {folder.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <p>
+            可选自己拥有且未共享的已授权文件夹。也可以在 Google Drive
+            中移动同一个备份文件。
+          </p>
+          <div className="action-row">
+            <GlassButton
+              disabled={!selected || busy || ledger.cloudBusy}
+              onClick={() =>
+                change(async () => {
+                  await setBackupFolder(selected);
+                  setMessage(
+                    ledger.cloudFileId
+                      ? "备份文件位置已更新"
+                      : "首次备份位置已设置",
+                  );
+                  setFolders(null);
+                  setSelected("");
+                })
+              }
+            >
+              保存位置
+            </GlassButton>
+            <GlassButton
+              disabled={busy}
+              onClick={() => {
+                setFolders(null);
+                setSelected("");
+              }}
+            >
+              取消
+            </GlassButton>
+          </div>
+          <Field label="新建备份文件夹">
+            <input
+              className="glass-input"
+              value={name}
+              maxLength={80}
+              placeholder="输入新文件夹名称"
+              disabled={busy}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </Field>
+          <GlassButton
+            disabled={busy || !name.trim()}
+            onClick={() =>
+              change(async () => {
+                const folder = await createBackupFolder(name);
+                setFolders((choices) => [...choices, folder]);
+                setSelected(folder.id);
+                setName("");
+                setMessage("文件夹已创建，点击「保存位置」后使用");
+              })
+            }
+          >
+            新建文件夹
+          </GlassButton>
+        </>
+      )}
+      {message && <p role="status">{message}</p>}
+      <ErrorLine error={error} />
+    </>
+  );
+}
+
+function DriveBackupSettings({ ledger }) {
+  const [error, setError] = useState("");
+  return (
+    <section className="management-section" aria-label="备份设置">
+      <h3>备份设置</h3>
+      <Field label="备份频率">
+        <Select
+          value={ledger.cloudFrequency}
+          onChange={(event) => {
+            try {
+              setBackupFrequency(event.target.value);
+              setError("");
+            } catch (_) {
+              setError("浏览器未能保存备份频率，请检查存储设置");
+            }
+          }}
+        >
+          {Object.entries(BACKUP_FREQUENCIES).map(([id, { label }]) => (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {ledger.cloudFrequency === "manual" ? (
+        <p>点击「立即同步」时备份。</p>
+      ) : (
+        <p>
+          网页在前台且 Google
+          授权有效时自动备份。重新连接后，已到期的备份会补做。
+        </p>
+      )}
+      {ledger.cloudLastSync > 0 && (
+        <p>
+          上次成功同步：{new Date(ledger.cloudLastSync).toLocaleString("zh-CN")}
+        </p>
+      )}
+      {ledger.cloudReady && ledger.cloudChecked ? (
+        <DriveLocation key={ledger.cloudSession} ledger={ledger} />
+      ) : (
+        <p>连接 Google Drive 后可设置备份位置。</p>
+      )}
+      <ErrorLine error={error} />
+    </section>
+  );
+}
+
 export function ManageDialog({ cloudOnly, ledger, onClose, done, notify }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -761,7 +945,7 @@ export function ManageDialog({ cloudOnly, ledger, onClose, done, notify }) {
           <GlassButton
             className="primary"
             onClick={connect}
-            disabled={authStatus === "loading"}
+            disabled={authStatus === "loading" || ledger.cloudBusy}
           >
             {authStatus === "loading"
               ? "正在加载 Google 授权…"
@@ -773,7 +957,16 @@ export function ManageDialog({ cloudOnly, ledger, onClose, done, notify }) {
           </GlassButton>
           {ledger.cloudReady && (
             <>
-              <GlassButton onClick={() => syncCloud()}>立即同步</GlassButton>
+              <GlassButton
+                disabled={ledger.cloudBusy}
+                onClick={() => syncCloud()}
+              >
+                {!ledger.cloudChecked
+                  ? "重新检查"
+                  : ledger.cloudFileId
+                    ? "立即同步"
+                    : "首次备份"}
+              </GlassButton>
               <GlassButton onClick={disconnectCloud}>停止同步</GlassButton>
             </>
           )}
@@ -784,6 +977,7 @@ export function ManageDialog({ cloudOnly, ledger, onClose, done, notify }) {
           </p>
         )}
       </section>
+      <DriveBackupSettings ledger={ledger} />
       {!cloudOnly && (
         <>
           <section className="management-section">

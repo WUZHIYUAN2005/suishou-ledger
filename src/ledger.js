@@ -1,12 +1,23 @@
+import { createDriveClient, DRIVE_ROOT } from "./drive.js";
+
 const DB_KEY = "suishou-ledger.records.v1";
 const PREF_KEY = "suishou-ledger.prefs.v1";
 const EXTRAS_KEY = "suishou-ledger.extras.v1";
 const CLOUD_META_KEY = "suishou-ledger.cloud-meta.v1";
+const CLOUD_FREQUENCY_KEY = "suishou-ledger.cloud-frequency.v1";
+const CLOUD_TIME_PREFIX = "suishou-ledger.cloud-last-sync.v1.";
 const DRIVE_CLIENT_ID =
   "623321438376-t93joh0ms0fb806lp043k9mrub8o3f6c.apps.googleusercontent.com";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FILE_NAME = "随手账本-云端同步.json";
 const GOOGLE_IDENTITY_SCRIPT = "https://accounts.google.com/gsi/client";
+const BACKUP_FREQUENCIES = {
+  changes: { label: "修改后自动同步", interval: 15_000 },
+  "15m": { label: "每 15 分钟", interval: 15 * 60_000 },
+  "1h": { label: "每小时", interval: 60 * 60_000 },
+  "1d": { label: "每天", interval: 24 * 60 * 60_000 },
+  manual: { label: "仅手动", interval: null },
+};
 const CURRENCIES = [
   { code: "CNY", name: "人民币", digits: 2 },
   { code: "USD", name: "美元", digits: 2 },
@@ -379,6 +390,10 @@ function parseNonnegativeMoney(value, currency) {
 }
 
 const savedPrefs = readLocal(PREF_KEY, {});
+const readBackupFrequency = () => {
+  const frequency = readLocal(CLOUD_FREQUENCY_KEY, "changes");
+  return Object.hasOwn(BACKUP_FREQUENCIES, frequency) ? frequency : "changes";
+};
 let storageError = "";
 function loadData(key, read, fallback) {
   try {
@@ -416,6 +431,13 @@ const state = {
   cloudMessage: "本地账本 · 尚未连接 Google Drive",
   cloudStatus: "idle",
   cloudReady: false,
+  cloudChecked: false,
+  cloudBusy: false,
+  cloudSession: 0,
+  cloudFileId: "",
+  cloudFolderName: "",
+  cloudLastSync: 0,
+  cloudFrequency: readBackupFrequency(),
 };
 
 const listeners = new Set();
@@ -480,7 +502,7 @@ function commit(changes, recovering = false) {
   cloudMeta = meta;
   cloudBaseline = currentData();
   cloudSeq++;
-  if (cloud.ready) scheduleCloudSync(750);
+  scheduleCloudSync(750);
   notify();
 }
 
@@ -524,20 +546,27 @@ try {
 let cloudMeta = sanitizeMeta(readLocal(CLOUD_META_KEY, null));
 let cloudBaseline = currentData();
 let cloudSeq = 0;
-const cloud = {
-  token: "",
-  expiresAt: 0,
-  fileId: "",
-  fileVersion: "",
-  ready: false,
-  busy: false,
-  queued: false,
-  initialized: false,
-  timer: null,
-  tokenClient: null,
-  authPrompt: false,
-  lastSync: 0,
-};
+let cloudSerial = 0;
+let authPrompt = false;
+let authorizationAttempt = 0;
+function makeCloudSession(drive = null, token = "") {
+  return {
+    serial: ++cloudSerial,
+    drive,
+    token,
+    backup: null,
+    destination: DRIVE_ROOT,
+    folderName: "",
+    checked: false,
+    busy: false,
+    initialized: false,
+    paused: false,
+    timer: null,
+    lastSync: 0,
+    retryAfter: 0,
+  };
+}
+let cloud = makeCloudSession();
 function currentData() {
   return {
     records: state.records,
@@ -595,11 +624,22 @@ function stampLocalChanges(after) {
   return meta;
 }
 
-function cloudStateLabel(message, kind = "idle") {
-  state.cloudMessage = message.replace(/^☁ /, "");
-  state.cloudStatus = kind;
-  state.cloudReady = cloud.ready;
+function publishCloud() {
+  state.cloudReady = !!cloud.drive;
+  state.cloudChecked = cloud.checked;
+  state.cloudBusy = cloud.busy;
+  state.cloudSession = cloud.serial;
+  state.cloudFileId = cloud.backup?.id ?? "";
+  state.cloudFolderName = cloud.backup
+    ? cloud.folderName
+    : cloud.destination.name;
+  state.cloudLastSync = cloud.lastSync;
   notify();
+}
+function cloudStateLabel(message, kind = "idle") {
+  state.cloudMessage = message;
+  state.cloudStatus = kind;
+  publishCloud();
 }
 function localCloudPack() {
   const data = currentData();
@@ -709,260 +749,313 @@ function persistCloudMerge(pack) {
   notify();
   return true;
 }
-function driveHeaders(json = false) {
-  return {
-    Authorization: "Bearer " + cloud.token,
-    ...(json ? { "Content-Type": "application/json; charset=UTF-8" } : {}),
-  };
+function setBackupFrequency(frequency) {
+  if (!Object.hasOwn(BACKUP_FREQUENCIES, frequency)) return;
+  localStorage.setItem(CLOUD_FREQUENCY_KEY, JSON.stringify(frequency));
+  state.cloudFrequency = frequency;
+  cloud.retryAfter = 0;
+  scheduleCloudSync();
+  notify();
 }
-async function driveRequest(url, options = {}) {
-  if (!navigator.onLine) throw new Error("网络未连接，数据保存在本地");
-  if (!cloud.token || Date.now() > cloud.expiresAt - 30000)
-    throw new Error("Google 授权已过期，请点击「重连」继续同步");
-  const controller = new AbortController(),
-    timer = setTimeout(() => controller.abort(), 20000);
+
+function getLastBackupTime(id) {
+  const saved = readLocal(CLOUD_TIME_PREFIX + id, 0);
+  return Number.isFinite(saved) && saved > 0 ? Math.min(saved, Date.now()) : 0;
+}
+
+function recordBackupTime(session) {
+  session.initialized = true;
+  session.paused = false;
+  session.lastSync = Date.now();
   try {
-    const res = await fetch(url, {
-      ...options,
-      headers: { ...driveHeaders(), ...(options.headers || {}) },
-      signal: controller.signal,
-    });
-    if (res.status === 401 || res.status === 403) {
-      let errBody = "";
-      try {
-        errBody = (await res.clone().json())?.error?.message || "";
-      } catch (_) {}
-      if (res.status === 401) throw new Error("Google 授权已过期，请重新连接");
-      throw new Error(
-        "Google Drive 权限不足：" +
-          (errBody || "请确认已启用 Drive API 和授权 drive.file 权限"),
-      );
-    }
-    if (!res.ok) {
-      let body = "";
-      try {
-        body = (await res.text()).slice(0, 160);
-      } catch (_) {}
-      throw new Error("Drive 请求失败 (" + res.status + ") " + body);
-    }
-    return res.status === 204 ? null : await res.json();
-  } catch (err) {
-    if (err.name === "AbortError") throw new Error("请求超时，请检查网络");
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-const DRIVE_API = "https://www.googleapis.com/drive/v3";
-async function findCloudFile() {
-  if (cloud.fileId) return cloud.fileId;
-  const q = "name = '" + DRIVE_FILE_NAME + "' and trashed = false";
-  const url =
-    DRIVE_API +
-    "/files?" +
-    new URLSearchParams({
-      q,
-      fields: "nextPageToken,files(id,name,mimeType,version,modifiedTime)",
-      pageSize: "100",
-      spaces: "drive",
-    });
-  const data = await driveRequest(url);
-  const matches = (data.files || []).filter(
-    (x) => x.name === DRIVE_FILE_NAME && x.mimeType === "application/json",
-  );
-  if (data.nextPageToken || matches.length > 1)
-    throw new Error(
-      "找到多个同名云端账本或列表未完整，请先在 Drive 中检查，避免误覆盖",
+    localStorage.setItem(
+      CLOUD_TIME_PREFIX + session.backup.id,
+      String(session.lastSync),
     );
-  if (matches.length) {
-    cloud.fileId = matches[0].id;
-    cloud.fileVersion = matches[0].version || "";
-    return cloud.fileId;
+  } catch (_) {
+    // The completed backup remains valid even if remembering its date fails.
   }
-  return null;
 }
-async function createCloudFile(pack) {
-  const boundary = "ledgerSync" + Math.random().toString(36).slice(2);
-  const metadata = {
-    name: DRIVE_FILE_NAME,
-    mimeType: "application/json",
-    description: "随手账本私人账目同步文件，请勿手动修改",
-  };
-  const body =
-    "--" +
-    boundary +
-    "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" +
-    JSON.stringify(metadata) +
-    "\r\n--" +
-    boundary +
-    "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" +
-    JSON.stringify(pack) +
-    "\r\n--" +
-    boundary +
-    "--";
-  const data = await driveRequest(
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,version",
-    {
-      method: "POST",
-      headers: { "Content-Type": "multipart/related; boundary=" + boundary },
-      body,
-    },
+
+function requireDrive() {
+  if (!cloud.drive || !cloud.checked) throw new Error("请先连接 Google Drive");
+  return cloud;
+}
+
+function assertActive(session) {
+  if (session !== cloud) throw new Error("Google Drive 连接已变更");
+}
+
+function rememberBackup(session, file) {
+  if (session.backup?.parents?.[0] !== file?.parents?.[0])
+    session.folderName = "";
+  session.backup = file;
+}
+
+async function refreshFolderName(session) {
+  const parent = session.backup?.parents?.[0];
+  if (!parent || session.folderName) return;
+  const [root, folder] = await Promise.all([
+    session.drive.folder(DRIVE_ROOT.id).catch(() => null),
+    session.drive.folder(parent).catch(() => null),
+  ]);
+  if (session !== cloud || session.backup?.parents?.[0] !== parent) return;
+  session.folderName =
+    root?.id === parent ? DRIVE_ROOT.name : (folder?.name ?? "");
+  publishCloud();
+}
+
+async function listBackupFolders() {
+  const session = requireDrive();
+  const folders = await session.drive.listFolders();
+  assertActive(session);
+  return [DRIVE_ROOT, ...folders];
+}
+
+async function createBackupFolder(name) {
+  const session = requireDrive();
+  const folder = await session.drive.createFolder(name);
+  assertActive(session);
+  return folder;
+}
+
+async function setBackupFolder(id) {
+  const session = requireDrive();
+  if (session.busy) throw new Error("请等当前同步完成后再更改位置");
+  clearTimeout(session.timer);
+  session.busy = true;
+  publishCloud();
+  try {
+    const target =
+      !session.backup && id === DRIVE_ROOT.id
+        ? DRIVE_ROOT
+        : await session.drive.destination(id);
+    assertActive(session);
+    if (session.backup) {
+      const moved = await session.drive.moveBackup(session.backup.id, target);
+      assertActive(session);
+      rememberBackup(session, moved);
+      session.folderName = target.name;
+    } else {
+      session.destination = target;
+    }
+  } finally {
+    if (session === cloud) {
+      session.busy = false;
+      publishCloud();
+      scheduleCloudSync();
+    }
+  }
+}
+
+function scheduleCloudSync(changeDelay) {
+  const session = cloud;
+  clearTimeout(session.timer);
+  const frequency = state.cloudFrequency;
+  const interval = BACKUP_FREQUENCIES[frequency].interval;
+  if (
+    interval === null ||
+    !session.drive ||
+    !session.checked ||
+    !session.backup ||
+    session.paused ||
+    session.busy ||
+    !navigator.onLine ||
+    document.visibilityState === "hidden"
+  )
+    return;
+
+  const now = Date.now();
+  if (now >= session.drive.expiresAt) {
+    cloudStateLabel("Google 授权已过期，重新授权后可继续备份", "warning");
+    return;
+  }
+  const next =
+    frequency === "changes" && changeDelay !== undefined
+      ? now + changeDelay
+      : session.lastSync + interval;
+  const wake = Math.min(
+    Math.max(now, next, session.retryAfter),
+    session.drive.expiresAt,
   );
-  if (!data?.id) throw new Error("Google Drive 没有返回文件 ID");
-  cloud.fileId = data.id;
-  cloud.fileVersion = data.version || "";
+  session.timer = setTimeout(() => {
+    if (session !== cloud) return;
+    if (Date.now() >= session.drive.expiresAt) {
+      cloudStateLabel("Google 授权已过期，重新授权后可继续备份", "warning");
+      return;
+    }
+    void syncCloud(false);
+  }, wake - now);
 }
-async function fetchCloudFile() {
-  const metadata = await driveRequest(
-    DRIVE_API +
-      "/files/" +
-      encodeURIComponent(cloud.fileId) +
-      "?fields=id,name,version,modifiedTime",
-  );
-  const data = await driveRequest(
-    DRIVE_API + "/files/" + encodeURIComponent(cloud.fileId) + "?alt=media",
-  );
-  return { version: metadata.version || "", pack: checkedCloudPack(data) };
+
+async function inspectCloud(session) {
+  session.busy = true;
+  cloudStateLabel("Google 已授权 · 正在检查云端账本", "syncing");
+  try {
+    const backup = await session.drive.findBackup();
+    assertActive(session);
+    rememberBackup(session, backup);
+    session.lastSync = backup ? getLastBackupTime(backup.id) : 0;
+    session.initialized = !!session.lastSync;
+    session.checked = true;
+    cloudStateLabel(
+      backup ? "Google Drive 已连接" : "已授权 · 选择位置后可进行首次备份",
+    );
+    if (backup) void refreshFolderName(session);
+  } catch (error) {
+    if (session === cloud) cloudStateLabel(error.message, "warning");
+  } finally {
+    if (session === cloud) {
+      session.busy = false;
+      publishCloud();
+      scheduleCloudSync(0);
+    }
+  }
 }
-async function updateCloudFile(pack) {
-  const data = await driveRequest(
-    "https://www.googleapis.com/upload/drive/v3/files/" +
-      encodeURIComponent(cloud.fileId) +
-      "?uploadType=media&fields=id,version",
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json; charset=UTF-8" },
-      body: JSON.stringify(pack),
-    },
-  );
-  cloud.fileVersion = data?.version || cloud.fileVersion;
-}
-function scheduleCloudSync(delay = 900) {
-  if (!cloud.ready) return;
-  clearTimeout(cloud.timer);
-  cloud.timer = setTimeout(() => {
-    if (document.visibilityState === "visible") syncCloud().catch(() => {});
-  }, delay);
-}
-async function syncCloud(first = false) {
-  if (!cloud.ready) return;
+
+async function syncCloud(manual = true) {
+  const session = cloud;
+  if (!session.drive || session.busy || document.visibilityState === "hidden")
+    return;
+  if (
+    !manual &&
+    (!session.backup || session.paused || state.cloudFrequency === "manual")
+  )
+    return;
+  if (!session.checked) {
+    await inspectCloud(session);
+    return;
+  }
   if (storageError) {
     cloudStateLabel(storageError, "warning");
     return;
   }
-  if (cloud.busy) {
-    cloud.queued = true;
-    return;
-  }
-  if (document.visibilityState === "hidden") return;
-  cloud.busy = true;
-  first = first || !cloud.initialized;
+
+  clearTimeout(session.timer);
+  session.busy = true;
+  let recheck = false;
   const startingSeq = cloudSeq;
-  cloudStateLabel("☁ 正在同步 Google Drive…", "syncing");
+  function changedWhileSyncing() {
+    assertActive(session);
+    recheck = startingSeq !== cloudSeq;
+    return recheck;
+  }
+  cloudStateLabel("正在同步 Google Drive…", "syncing");
   try {
-    const id = await findCloudFile();
-    if (startingSeq !== cloudSeq) {
-      scheduleCloudSync(250);
-      return;
-    }
+    // Look up the file again before initially creating it, including after an interrupted upload.
+    if (!session.backup)
+      rememberBackup(session, await session.drive.findBackup());
+    if (changedWhileSyncing()) return;
     const local = localCloudPack();
-    if (!id) {
+    if (!session.backup) {
+      const target =
+        session.destination.id === DRIVE_ROOT.id
+          ? DRIVE_ROOT
+          : await session.drive.destination(session.destination.id);
+      if (changedWhileSyncing()) return;
       if (
-        first &&
         !confirm(
-          "将此入口的 " +
-            local.records.length +
-            " 笔账目、" +
-            local.cards.length +
-            " 张储值卡和 " +
-            local.memberships.length +
-            " 项会员上传到 Google Drive，作为云端账本。确定继续吗？",
+          `将 ${local.records.length} 笔账单、${local.cards.length} 张储值卡和 ${local.memberships.length} 项订阅备份到「${target.name}」。确定继续吗？`,
         )
       ) {
-        cloud.ready = false;
-        cloudStateLabel("尚未启用云端同步（本地数据未变）", "warning");
+        session.paused = true;
+        cloudStateLabel("未进行首次备份，可随时手动开始");
         return;
       }
-      await createCloudFile(local);
-      if (startingSeq !== cloudSeq) {
-        scheduleCloudSync(250);
+      rememberBackup(
+        session,
+        await session.drive.createBackup(local, target.id),
+      );
+      assertActive(session);
+      session.folderName = target.name;
+      recordBackupTime(session);
+      if (changedWhileSyncing()) return;
+    } else {
+      const id = session.backup.id;
+      const previousParent = session.backup.parents?.[0];
+      const metadata = await session.drive.getBackup(id);
+      if (changedWhileSyncing()) return;
+      if (metadata.trashed) throw new Error("云端账本在回收站，请恢复后重试");
+      // Older authorized files may omit parent metadata, for example after a move in Drive.
+      rememberBackup(session, { ...session.backup, ...metadata });
+      if (previousParent !== session.backup.parents?.[0])
+        void refreshFolderName(session);
+      const remote = checkedCloudPack(await session.drive.readBackup(id));
+      if (changedWhileSyncing()) return;
+      if (
+        !session.initialized &&
+        (local.records.length ||
+          local.cards.length ||
+          local.memberships.length) &&
+        (remote.records.length ||
+          remote.cards.length ||
+          remote.memberships.length) &&
+        !confirm(
+          `本地有 ${local.records.length} 笔账单，云端有 ${remote.records.length} 笔账单。首次同步会按记录 ID 合并账单、储值卡和订阅。现在合并吗？`,
+        )
+      ) {
+        session.paused = true;
+        cloudStateLabel("未执行首次合并，可随时手动开始");
         return;
       }
-      cloud.initialized = true;
-      cloud.lastSync = Date.now();
-      cloudStateLabel("☁ 已同步 · 云端已建立", "ok");
-      return;
-    }
-    const remote = await fetchCloudFile();
-    if (startingSeq !== cloudSeq) {
-      scheduleCloudSync(250);
-      return;
-    }
-    if (
-      first &&
-      (local.records.length ||
-        local.cards.length ||
-        local.memberships.length) &&
-      (remote.pack.records.length ||
-        remote.pack.cards.length ||
-        remote.pack.memberships.length)
-    ) {
-      const msg =
-        "首次连接：本地有 " +
-        local.records.length +
-        " 笔账目，云端有 " +
-        remote.pack.records.length +
-        " 笔账目。将按记录 ID 合并两边不同的账目、储值卡及会员。相同 ID 的内容会采用最近修改版本。建议先导出两边的重要备份。现在合并吗？";
-      if (!confirm(msg)) {
-        cloud.ready = false;
-        cloudStateLabel("未执行首次合并（本地数据未变）", "warning");
+      let merged = mergeCloudPacks(local, remote);
+      if (packComparable(merged) !== packComparable(remote)) {
+        // Refresh the remote copy immediately before writing.
+        const latest = checkedCloudPack(await session.drive.readBackup(id));
+        if (changedWhileSyncing()) return;
+        merged = mergeCloudPacks(local, latest);
+        if (packComparable(merged) !== packComparable(latest)) {
+          await session.drive.writeBackup(id, merged);
+        }
+      }
+      if (changedWhileSyncing()) return;
+      if (
+        packComparable(merged) !== packComparable(local) &&
+        !persistCloudMerge(merged)
+      ) {
+        session.retryAfter = Date.now() + 30_000;
         return;
       }
+      recordBackupTime(session);
     }
-    let merged = mergeCloudPacks(local, remote.pack);
-    const changedRemote =
-      packComparable(merged) !== packComparable(remote.pack);
-    if (changedRemote) {
-      // Recheck remote version immediately before upload. This reduces overwrites,
-      // but Google Drive single-file updates are not an atomic multi-client DB.
-      const latest = await fetchCloudFile();
-      if (startingSeq !== cloudSeq) {
-        scheduleCloudSync(250);
-        return;
-      }
-      merged = mergeCloudPacks(local, latest.pack);
-      if (packComparable(merged) !== packComparable(latest.pack))
-        await updateCloudFile(merged);
-    }
-    if (startingSeq !== cloudSeq) {
-      scheduleCloudSync(250);
-      return;
-    }
-    if (!persistCloudMerge(merged)) return;
-    cloud.initialized = true;
-    cloud.lastSync = Date.now();
+    session.retryAfter = 0;
     cloudStateLabel(
-      "☁ 已同步 · " +
-        new Date().toLocaleTimeString("zh-CN", {
+      "已同步 · " +
+        new Date(session.lastSync).toLocaleTimeString("zh-CN", {
           hour: "2-digit",
           minute: "2-digit",
         }),
       "ok",
     );
-  } catch (err) {
-    cloudStateLabel(
-      "☁ " + (err?.message || "同步失败，数据已保存在本机"),
-      "warning",
-    );
-    console.warn("Google Drive 同步失败", err);
+  } catch (error) {
+    if (session === cloud) {
+      session.retryAfter = Date.now() + 30_000;
+      cloudStateLabel(
+        error?.message || "同步失败，数据仍保存在本机",
+        "warning",
+      );
+      console.warn("Google Drive 同步失败", error);
+    }
   } finally {
-    cloud.busy = false;
-    if (cloud.queued) {
-      cloud.queued = false;
-      scheduleCloudSync(500);
+    if (session === cloud) {
+      session.busy = false;
+      if (recheck) {
+        cloudStateLabel("同步期间账目有更新，将按当前设置重试");
+        if (manual) {
+          session.timer = setTimeout(() => {
+            if (session === cloud) void syncCloud();
+          }, 250);
+        } else {
+          scheduleCloudSync(250);
+        }
+      } else {
+        publishCloud();
+        scheduleCloudSync();
+      }
     }
   }
 }
+
 let googleAuthorizationRequest;
 function loadGoogleAuthorization() {
   if (window.google?.accounts?.oauth2?.initTokenClient)
@@ -996,69 +1089,80 @@ function loadGoogleAuthorization() {
 
 function getGoogleTokenFromClick() {
   if (!window.google?.accounts?.oauth2?.initTokenClient) return false;
-  if (cloud.authPrompt) return true;
-  cloud.authPrompt = true;
+  if (authPrompt || cloud.busy) return true;
+  authPrompt = true;
+  const attempt = ++authorizationAttempt;
   try {
-    cloud.tokenClient = window.google.accounts.oauth2.initTokenClient({
+    const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: DRIVE_CLIENT_ID,
       scope: DRIVE_SCOPE,
       callback: (response) => {
-        cloud.authPrompt = false;
+        if (attempt !== authorizationAttempt) return;
+        authPrompt = false;
         if (!response?.access_token) {
           cloudStateLabel("Google 授权失败或取消，请重试", "warning");
           return;
         }
-        cloudSeq++;
-        cloud.token = response.access_token;
-        cloud.expiresAt =
-          Date.now() + Math.max(60, Number(response.expires_in) || 3600) * 1000;
-        cloud.fileId = "";
-        cloud.ready = true;
-        cloud.initialized = false;
-        cloudStateLabel("☁ Google 已授权 · 正在读取云端账本", "syncing");
-        syncCloud(true);
+        clearTimeout(cloud.timer);
+        cloud.drive?.close();
+        const token = response.access_token;
+        const expiresAt =
+          Date.now() +
+          Math.max(10, Number(response.expires_in) || 3600) * 1000 -
+          5000;
+        cloud = makeCloudSession(
+          createDriveClient(token, expiresAt, DRIVE_FILE_NAME),
+          token,
+        );
+        void inspectCloud(cloud);
       },
       error_callback: () => {
-        cloud.authPrompt = false;
+        if (attempt !== authorizationAttempt) return;
+        authPrompt = false;
         cloudStateLabel("Google 登录弹窗未完成，请用 Safari 重试", "warning");
       },
     });
-    cloud.tokenClient.requestAccessToken({ prompt: "consent" });
+    tokenClient.requestAccessToken({ prompt: "consent" });
   } catch (err) {
-    cloud.authPrompt = false;
+    authPrompt = false;
     cloudStateLabel("无法打开 Google 授权：" + err.message, "warning");
   }
   return true;
 }
 
 function disconnectCloud() {
+  authorizationAttempt++;
+  authPrompt = false;
   clearTimeout(cloud.timer);
-  cloudSeq++;
   const lastToken = cloud.token;
-  cloud.ready = false;
-  cloud.initialized = false;
-  cloud.token = "";
-  cloud.expiresAt = 0;
-  cloud.fileId = "";
+  cloud.drive?.close();
+  cloud = makeCloudSession();
   if (lastToken) window.google?.accounts?.oauth2?.revoke(lastToken, () => {});
   cloudStateLabel("已停止同步 · 账目仍保存在本机及已写入的 Google Drive 文件");
 }
-setInterval(() => {
-  if (cloud.ready && document.visibilityState === "visible") syncCloud();
-}, 15000);
 window.addEventListener("online", () => scheduleCloudSync(1200));
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") scheduleCloudSync(500);
+  scheduleCloudSync(500);
 });
 window.addEventListener("focus", () => scheduleCloudSync(600));
 
 let storageTimer;
 window.addEventListener("storage", (event) => {
-  if (
-    event.storageArea !== localStorage ||
-    ![DB_KEY, EXTRAS_KEY, CLOUD_META_KEY, null].includes(event.key)
-  )
-    return;
+  if (event.storageArea !== localStorage) return;
+  if (event.key === CLOUD_FREQUENCY_KEY || event.key === null) {
+    state.cloudFrequency = readBackupFrequency();
+    scheduleCloudSync();
+    notify();
+  }
+  if (cloud.backup && event.key === CLOUD_TIME_PREFIX + cloud.backup.id) {
+    cloud.lastSync = Math.max(
+      cloud.lastSync,
+      getLastBackupTime(cloud.backup.id),
+    );
+    publishCloud();
+    scheduleCloudSync();
+  }
+  if (![DB_KEY, EXTRAS_KEY, CLOUD_META_KEY, null].includes(event.key)) return;
   clearTimeout(storageTimer);
   storageTimer = setTimeout(() => {
     storageError = "";
@@ -1071,12 +1175,15 @@ window.addEventListener("storage", (event) => {
       ensureCloudVersions(cloudBaseline, cloudMeta);
     }
     notify();
+    scheduleCloudSync(750);
   }, 0);
 });
 
 export {
+  BACKUP_FREQUENCIES,
   CATEGORY,
   CURRENCIES,
+  createBackupFolder,
   DRIVE_FILE_NAME,
   disconnectCloud,
   estimateCny,
@@ -1086,6 +1193,7 @@ export {
   getCnyRate,
   getGoogleTokenFromClick,
   getSnapshot,
+  listBackupFolders,
   loadGoogleAuthorization,
   localDatetime,
   localMonth,
@@ -1095,6 +1203,8 @@ export {
   parseMoney,
   parseNonnegativeMoney,
   saveCurrency,
+  setBackupFolder,
+  setBackupFrequency,
   state,
   subscribe,
   syncCloud,

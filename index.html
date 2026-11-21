@@ -240,6 +240,14 @@
     @media(max-width:830px){.extras-grid{grid-template-columns:1fr;gap:16px}}
     @media(max-width:420px){.extras-heading h2{font-size:20px}.form-grid-two{gap:9px}.feature-value{font-size:15px}}
     :root[data-theme="dark"] .due-label.soon{color:#ffd191}
+    .fx-subline{font-size:12px;font-weight:600;color:var(--green);line-height:1.6;margin-top:5px;overflow-wrap:anywhere;white-space:normal}
+    .feature-value{max-width:54%;text-align:right;min-width:0}
+    .fx-subline.muted{color:var(--muted)}
+    .fx-preview{padding:11px 13px;border:1px solid var(--glass-border);background:var(--subtle-bg);border-radius:12px;margin:-4px 0 14px;font-size:12px;line-height:1.7;color:var(--control-ink)}
+    .fx-preview strong{display:block;font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
+    .fx-preview a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+    .fx-notice{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6}
+    .fx-note-link{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
   </style>
 </head>
 <body>
@@ -272,7 +280,7 @@
         <div class="stat-currency"><span class="stat-caption">选择统计币种</span><select id="statsCurrency" class="select" aria-label="统计币种"></select></div>
         <div class="donut-wrap"><div class="donut" id="donut" role="img" aria-label="分类占比图"><div class="donut-label"><span id="donutHint">总支出</span><strong id="donutTotal">¥0.00</strong></div></div></div>
         <div class="legend" id="legend"></div>
-        <p class="stat-note">统计按所选月份及币种分别计算；不同币种不会直接相加，也不会自动换汇。</p>
+        <p class="stat-note">统计按所选月份及币种计算。通过「会员本次付款」登记的外币订阅会按确认时的参考汇率折算成人民币，固定计入 CNY；其他外币账单仍按原币种单独统计。</p>
       </section>
     </div>
 
@@ -288,10 +296,10 @@
         </section>
         <section class="panel extras-panel" aria-labelledby="membersTitle">
           <div class="panel-heading"><span class="panel-title" id="membersTitle">平台会员与订阅</span><span class="count" id="membersCount">0 项</span></div>
-          <div class="extras-summary"><span class="label-mini">有效订阅预计年费用（按币种分别统计）</span><strong id="membersTotals">尚无订阅</strong><div class="feature-details" id="membersMonthly">填写会员后显示月均费用</div></div>
+          <div class="extras-summary"><span class="label-mini">有效订阅预计年费用（按币种分别统计）</span><strong id="membersTotals">尚无订阅</strong><div class="feature-details" id="membersMonthly">填写会员后显示月均费用</div><div class="fx-subline" id="membersCnyTotal" aria-live="polite"></div></div>
           <div id="membersList" aria-live="polite"></div>
           <button type="button" class="outline feature-add" id="addMemberBtn">＋ 添加会员 / 订阅</button>
-          <p class="feature-note">可记录平台、单次费用、续费周期、到期／下次扣费日期和自动续费状态。到期提醒仅在打开网页时显示；会员资料本身不自动生成账单，避免重复记账。</p>
+          <p class="feature-note">外币订阅会显示最新参考汇率对应的人民币估值。只有点击「记本次付款」并确认后，才生成一笔按当时汇率固定折算的人民币支出；避免与已有账目重复。到期提醒仅在打开网页时显示。</p>
         </section>
       </div>
     </section>
@@ -338,12 +346,19 @@
     <form id="memberForm">
       <div class="field"><label class="label" for="memberNameInput">会员 / 平台名称</label><input id="memberNameInput" class="input" type="text" maxlength="50" required placeholder="例如：Spotify、iCloud、视频会员"></div>
       <div class="form-grid-two"><div class="field"><label class="label" for="memberAmountInput">每周期费用</label><input id="memberAmountInput" class="input" type="text" inputmode="decimal" placeholder="0.00" required></div><div class="field"><label class="label" for="memberCurrencyInput">币种</label><select id="memberCurrencyInput" class="select"></select></div></div>
+      <div class="fx-preview" id="memberFxPreview" aria-live="polite">选择外币并输入金额后，将显示人民币参考估值。</div>
       <div class="form-grid-two"><div class="field"><label class="label" for="memberCycleInput">收费周期</label><select id="memberCycleInput" class="select"><option value="month">每月</option><option value="quarter">每季度</option><option value="year">每年</option><option value="once">一次性 / 非自动续费</option></select></div><div class="field"><label class="label" for="memberDateInput">下次扣费 / 到期日期</label><input id="memberDateInput" class="input" type="date" required></div></div>
       <label class="check-row"><input type="checkbox" id="memberActiveInput" checked> 当前正在使用</label>
       <label class="check-row"><input type="checkbox" id="memberRenewInput"> 已开启自动续费</label>
       <div class="field"><label class="label" for="memberNoteInput">备注（选填）</label><input id="memberNoteInput" class="input" type="text" maxlength="100" placeholder="例如：学生优惠、家庭组"></div>
-      <button type="submit" class="primary save">保存会员</button><button type="button" id="deleteMemberBtn" class="delete hide">删除这项会员</button>
-      <p class="form-note">会统计订阅费用和到期时间，但不会自动扣款、生成支出或推送系统通知。</p>
+      <label class="check-row"><input type="checkbox" id="memberPaidNowInput"> 这笔会员费用已经支付，同时记入本次支出</label>
+      <div id="memberPaymentDetails" class="hide">
+        <div class="form-grid-two"><div class="field"><label class="label" for="memberPaymentDateInput">实际付款时间</label><input type="datetime-local" id="memberPaymentDateInput" class="input"></div><div class="field"><label class="label" for="memberPaymentCategoryInput">归入支出分类</label><select id="memberPaymentCategoryInput" class="select"></select></div></div>
+        <div class="field"><label class="label" for="memberActualCnyInput">银行实际扣款人民币（选填）</label><input type="text" inputmode="decimal" id="memberActualCnyInput" class="input" placeholder="留空则使用当前参考汇率"></div>
+        <p class="fx-notice">确认后只新增一次人民币支出，不会每月自动重复入账。若这笔钱之前已记过，请勿重复勾选；银行实际扣款可优先填写，以免参考汇率与结算汇率不同。</p>
+      </div>
+      <button type="submit" class="primary save" id="saveMemberBtn">保存会员</button><button type="button" id="deleteMemberBtn" class="delete hide">删除这项会员</button>
+      <p class="form-note">最新可用参考汇率由 <a class="fx-note-link" href="https://frankfurter.dev/" target="_blank" rel="noopener noreferrer">Frankfurter</a> 提供，通常每天更新多次，不是银行卡实时成交汇率。保存后的人民币记账金额固定，不随日后汇率改变。</p>
     </form>
   </div></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -425,6 +440,45 @@
     if(!Number.isSafeInteger(minor)||minor<=0||minor>1000000000000)return null;
     return minor;
   }
+  // Request latest published reference rate, never send membership names or amounts to a server.
+  // Daily reference rates are NOT a bank's real-time settlement rates.
+  const fxCache=new Map(),fxPending=new Map(),fxErrors=new Map();
+  const FX_SOURCE='https://api.frankfurter.dev';
+  function estimateCny(amountMinor,code,rate){return Math.round(amountMinor/(10**moneyDef(code).digits)*rate*100);}
+  function readableRate(rate){return Number(rate).toLocaleString('zh-CN',{maximumFractionDigits:6});}
+  async function getCnyRate(code,force=false){
+    if(code==='CNY')return {rate:1,date:localDatetime().slice(0,10),fetchedAt:new Date().toISOString(),source:'人民币原价'};
+    if(!CURRENCIES.some(c=>c.code===code))throw new Error('不支持的币种');
+    const cached=fxCache.get(code);
+    if(!force&&cached&&Date.now()-new Date(cached.fetchedAt).getTime()<10*60*1000)return cached;
+    if(fxPending.has(code))return fxPending.get(code);
+    const task=(async()=>{
+      const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),9000);
+      try{
+        const response=await fetch(`${FX_SOURCE}/v2/rate/${encodeURIComponent(code)}/CNY`,{mode:'cors',cache:'no-store',signal:controller.signal});
+        if(!response.ok)throw new Error(`HTTP ${response.status}`);
+        const data=await response.json();
+        if(data.base!==code||data.quote!=='CNY'||!Number.isFinite(data.rate)||data.rate<=0||data.rate>100000||!validDate(data.date))throw new Error('汇率数据格式不正确');
+        const snap={rate:data.rate,date:data.date,fetchedAt:new Date().toISOString(),source:'Frankfurter'};
+        fxCache.set(code,snap);fxErrors.delete(code);return snap;
+      }catch(err){fxErrors.set(code,'获取汇率失败，请检查网络');throw err;}
+      finally{clearTimeout(timer)}
+    })();
+    fxPending.set(code,task);
+    try{return await task;}finally{fxPending.delete(code)}
+  }
+  function fxLabel(minor,code){
+    if(code==='CNY')return '';
+    const snap=fxCache.get(code);
+    if(!snap)return fxErrors.has(code)?'汇率暂不可用 · 可稍后重试':'正在获取人民币参考汇率…';
+    return `≈ ${money(estimateCny(minor,code,snap.rate),'CNY')} · 1 ${code} ≈ ¥${readableRate(snap.rate)} · 汇率 ${snap.date}`;
+  }
+  function prefetchMemberRates(){
+    for(const c of new Set(state.memberships.map(m=>m.currency).filter(c=>c!=='CNY'))){
+      if(fxCache.has(c)||fxErrors.has(c)||fxPending.has(c))continue;
+      getCnyRate(c).then(()=>renderExtras()).catch(()=>renderExtras());
+    }
+  }
   function escapeHTML(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
   function getCategoryInfo(type,name){return CATEGORY[type]?.find(c=>c.name===name)||{name,icon:'···',color:'#8b95a5',bg:'#f1f2f7'};}
   function localDatetime(date=new Date()) {const p=n=>String(n).padStart(2,'0');return `${date.getFullYear()}-${p(date.getMonth()+1)}-${p(date.getDate())}T${p(date.getHours())}:${p(date.getMinutes())}`;}
@@ -443,7 +497,20 @@
       if(typeof r.name!=='string'||r.name.length>80)throw new Error('备份中的名称不正确');
       if(typeof r.occurredAt!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(r.occurredAt)||Number.isNaN(new Date(r.occurredAt).getTime()))throw new Error('备份中的日期不正确');
       if(r.paymentCardId!==undefined&&(typeof r.paymentCardId!=='string'||r.paymentCardId.length>100))throw new Error('备份中的储值卡引用不正确');
-      return {id:r.id,type:r.type,category:r.category,name:r.name,currency:r.currency,amountMinor:r.amountMinor,occurredAt:r.occurredAt,createdAt:typeof r.createdAt==='string'?r.createdAt:new Date().toISOString(),...(r.type==='expense'&&r.paymentCardId?{paymentCardId:r.paymentCardId}:{})};
+      if(r.membershipId!==undefined&&(typeof r.membershipId!=='string'||r.membershipId.length>100))throw new Error('备份中会员关联不正确');
+      let fx=null;
+      if(r.fx!==undefined){
+        const f=r.fx;
+        if(!f||typeof f!=='object'||r.currency!=='CNY'||
+          !CURRENCIES.some(c=>c.code===f.originalCurrency)||
+          !Number.isSafeInteger(f.originalAmountMinor)||f.originalAmountMinor<=0||f.originalAmountMinor>1000000000000||
+          typeof f.rate!=='number'||!Number.isFinite(f.rate)||f.rate<=0||f.rate>100000||
+          typeof f.rateDate!=='string'||!validDate(f.rateDate)||
+          !['Frankfurter','实际扣款','人民币原价'].includes(f.source)||
+          typeof f.capturedAt!=='string'||f.capturedAt.length>40)throw new Error('备份中的换汇记录不正确');
+        fx={originalCurrency:f.originalCurrency,originalAmountMinor:f.originalAmountMinor,rate:f.rate,rateDate:f.rateDate,source:f.source,capturedAt:f.capturedAt};
+      }
+      return {id:r.id,type:r.type,category:r.category,name:r.name,currency:r.currency,amountMinor:r.amountMinor,occurredAt:r.occurredAt,createdAt:typeof r.createdAt==='string'?r.createdAt:new Date().toISOString(),...(r.type==='expense'&&r.paymentCardId?{paymentCardId:r.paymentCardId}:{}),...(r.type==='expense'&&r.membershipId?{membershipId:r.membershipId}:{}),...(fx&&r.type==='expense'?{fx}:{})};
     });
   }
   function readLocal(key,fallback){try{const s=localStorage.getItem(key);return s===null?fallback:JSON.parse(s)}catch(e){console.warn('读取失败',e);return fallback;}}
@@ -522,6 +589,9 @@
     for(const m of state.memberships){if(!m.active||m.cycle==='once')continue;activeCount++;const mult={month:12,quarter:4,year:1}[m.cycle];yearly.set(m.currency,(yearly.get(m.currency)||0)+m.amountMinor*mult);}
     $('membersTotals').textContent=[...yearly].map(([c,v])=>money(v,c)).join(' · ')||'暂无周期性订阅';
     $('membersMonthly').textContent=[...yearly].map(([c,v])=>`月均约 ${money(v/12,c)}`).join(' · ')||(state.memberships.length?'一次性会员不计入续费预测':'填写会员后显示月均费用');
+    let yuanYearly=0,missing=0;
+    for(const [c,v] of yearly){if(c==='CNY')yuanYearly+=v;else if(fxCache.has(c))yuanYearly+=estimateCny(v,c,fxCache.get(c).rate);else missing++;}
+    $('membersCnyTotal').textContent=yearly.size?`预计年费用人民币参考值 ≈ ${money(yuanYearly,'CNY')}${missing?'（部分外币汇率尚未获取，合计不完整）':''} · 不计入实际支出`:'';
     $('membersCount').textContent=`${state.memberships.length} 项`;
     const today=localDatetime().slice(0,10);
     const dayDiff=(date)=>Math.round((new Date(date+'T12:00')-new Date(today+'T12:00'))/86400000);
@@ -531,7 +601,7 @@
       const days=dayDiff(m.nextDate);
       let status=m.active?(days<0?(m.autoRenew?'扣费日期已过 · 请核对':'已到期'):(days===0?'今天到期／扣费':days<=7?`${days} 天后到期／扣费`:days<=30?`${days} 天后到期／扣费`:'按期使用中')):'已停用';
       const cls=m.active&&days<0?'overdue':m.active&&days<=7?'soon':'';
-      return `<div class="feature-entry"><div class="feature-info"><strong class="feature-name">${escapeHTML(m.name)}</strong><div class="feature-details">${escapeHTML(cycleNames[m.cycle])} · ${escapeHTML(m.nextDate)} · ${m.autoRenew?'自动续费':'手动续费'}${m.note?` · ${escapeHTML(m.note)}`:''}</div><span class="due-label ${cls}">${escapeHTML(status)}</span><div class="feature-actions"><button type="button" class="mini-btn" data-member-id="${escapeHTML(m.id)}">编辑会员</button></div></div><div class="feature-value">${escapeHTML(money(m.amountMinor,m.currency))}</div></div>`;
+      return `<div class="feature-entry"><div class="feature-info"><strong class="feature-name">${escapeHTML(m.name)}</strong><div class="feature-details">${escapeHTML(cycleNames[m.cycle])} · ${escapeHTML(m.nextDate)} · ${m.autoRenew?'自动续费':'手动续费'}${m.note?` · ${escapeHTML(m.note)}`:''}</div><span class="due-label ${cls}">${escapeHTML(status)}</span><div class="feature-actions"><button type="button" class="mini-btn" data-member-id="${escapeHTML(m.id)}">编辑会员</button><button type="button" class="mini-btn" data-member-pay-id="${escapeHTML(m.id)}">记本次付款</button></div></div><div class="feature-value">${escapeHTML(money(m.amountMinor,m.currency))}${m.currency!=='CNY'?`<div class="fx-subline ${fxCache.has(m.currency)?'':'muted'}">${escapeHTML(fxLabel(m.amountMinor,m.currency))}</div>`:''}</div></div>`;
     }).join(''):'<div class="feature-empty">还没有订阅。可添加 GPT、Spotify、云存储或视频会员。</div>';
     $('cardsList').querySelectorAll('[data-card-action]').forEach(button=>button.addEventListener('click',()=>{
       const card=state.cards.find(c=>c.id===button.dataset.cardId);if(!card)return;
@@ -540,6 +610,8 @@
       else openCard(card.id);
     }));
     $('membersList').querySelectorAll('[data-member-id]').forEach(button=>button.addEventListener('click',()=>openMember(button.dataset.memberId)));
+    $('membersList').querySelectorAll('[data-member-pay-id]').forEach(button=>button.addEventListener('click',()=>openMember(button.dataset.memberPayId,true)));
+    prefetchMemberRates();
   }
   let editingCardId=null,topupCardId=null,editingMemberId=null;
   function openCard(id=null){
@@ -557,7 +629,7 @@
     $('topupNotice').textContent=`现有余额 ${money(c.balanceMinor,c.currency)}，充值金额会增加余额，但不会新增账本支出。`;
     $('topupAmountInput').value='';openOverlay($('topupOverlay'));
   }
-  function openMember(id=null){
+  function openMember(id=null,recordPayment=false){
     const m=id?state.memberships.find(m=>m.id===id):null;editingMemberId=m?.id||null;
     $('memberSheetTitle').textContent=m?'编辑会员':'添加会员';$('memberNameInput').value=m?.name||'';
     $('memberAmountInput').value=m?(m.amountMinor/(10**moneyDef(m.currency).digits)).toFixed(moneyDef(m.currency).digits):'';
@@ -565,8 +637,35 @@
     $('memberCycleInput').value=m?.cycle||'month';$('memberDateInput').value=m?.nextDate||localDatetime().slice(0,10);
     $('memberActiveInput').checked=m?m.active:true;$('memberRenewInput').checked=m?m.autoRenew:false;
     $('memberNoteInput').value=m?.note||'';$('deleteMemberBtn').classList.toggle('hide',!m);
+    $('memberPaidNowInput').checked=recordPayment;
+    $('memberPaymentDateInput').value=localDatetime();$('memberPaymentCategoryInput').innerHTML=CATEGORY.expense.map(c=>`<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('');
+    $('memberPaymentCategoryInput').value='其他支出';$('memberActualCnyInput').value='';
+    updateMemberPaymentFields();updateMemberFxPreview();
     openOverlay($('memberOverlay'));
   }
+  function updateMemberPaymentFields(){
+    const paid=$('memberPaidNowInput').checked;
+    $('memberPaymentDetails').classList.toggle('hide',!paid);
+    $('saveMemberBtn').textContent=paid?'保存会员并记入本次支出':'保存会员';
+  }
+  function updateMemberFxPreview(){
+    const currency=$('memberCurrencyInput').value;
+    const amount=parseMoney($('memberAmountInput').value,currency);
+    const box=$('memberFxPreview');
+    if(amount===null){box.textContent='输入有效的每周期费用后，自动显示人民币参考估值。';return;}
+    if(currency==='CNY'){box.innerHTML=`<strong>${escapeHTML(money(amount,'CNY'))}</strong>人民币原价，无需换汇。`;return;}
+    const rate=fxCache.get(currency);
+    if(rate){box.innerHTML=`<strong>${escapeHTML(money(amount,currency))} ≈ ${escapeHTML(money(estimateCny(amount,currency,rate.rate),'CNY'))}</strong>1 ${escapeHTML(currency)} ≈ ¥${escapeHTML(readableRate(rate.rate))}<div class="fx-notice">Frankfurter 最新发布参考汇率 · 日期 ${escapeHTML(rate.date)} · 非银行即时结算价</div>`;return;}
+    if(fxErrors.has(currency)){
+      box.innerHTML='<span>暂时无法获取汇率；可检查网络后重试，或填写银行实际扣款人民币。</span><button type="button" class="mini-btn" id="retryMemberFxBtn">重试汇率</button>';
+      $('retryMemberFxBtn').addEventListener('click',()=>{fxErrors.delete(currency);updateMemberFxPreview()});return;
+    }
+    box.textContent='正在获取最新可用的人民币参考汇率…';
+    if(!fxPending.has(currency)){getCnyRate(currency).then(()=>{if($('memberCurrencyInput').value===currency)updateMemberFxPreview();renderExtras()}).catch(()=>{if($('memberCurrencyInput').value===currency)updateMemberFxPreview()});}
+  }
+  $('memberAmountInput').addEventListener('input',updateMemberFxPreview);
+  $('memberCurrencyInput').addEventListener('change',updateMemberFxPreview);
+  $('memberPaidNowInput').addEventListener('change',updateMemberPaymentFields);
   $('extrasJumpBtn').addEventListener('click',()=>$('extras').scrollIntoView({behavior:'smooth',block:'start'}));
   $('addCardBtn').addEventListener('click',()=>openCard());$('addMemberBtn').addEventListener('click',()=>openMember());
   for(const [overlay,button] of [['cardOverlay','closeCardBtn'],['topupOverlay','closeTopupBtn'],['memberOverlay','closeMemberBtn']]){
@@ -598,15 +697,54 @@
     if(!saveBundle()){state.cards=prior;return;}
     closeOverlay($('topupOverlay'));renderExtras();toast('充值已记录（未计为支出）');
   });
-  $('memberForm').addEventListener('submit',e=>{
-    e.preventDefault();const currency=$('memberCurrencyInput').value,amountMinor=parseMoney($('memberAmountInput').value,currency);
+  $('memberForm').addEventListener('submit',async(e)=>{
+    e.preventDefault();
+    if($('saveMemberBtn').disabled)return;
+    const currency=$('memberCurrencyInput').value,amountMinor=parseMoney($('memberAmountInput').value,currency);
     const name=$('memberNameInput').value.trim(),nextDate=$('memberDateInput').value;
     if(!name||amountMinor===null||!validDate(nextDate)){alert('请输入会员名称、有效费用和日期');return;}
     const old=state.memberships.find(m=>m.id===editingMemberId);
     const member={id:old?.id||makeId(),name:name.slice(0,50),currency,amountMinor,cycle:$('memberCycleInput').value,nextDate,active:$('memberActiveInput').checked,autoRenew:$('memberRenewInput').checked,note:$('memberNoteInput').value.trim().slice(0,100)};
-    const prior=state.memberships;state.memberships=old?state.memberships.map(m=>m.id===old.id?member:m):[...state.memberships,member];
-    if(!saveBundle()){state.memberships=prior;return;}
-    closeOverlay($('memberOverlay'));renderExtras();toast('会员信息已保存');
+    const paid=$('memberPaidNowInput').checked;
+    const button=$('saveMemberBtn');button.disabled=true;
+    try{
+      let entry=null;
+      if(paid){
+        const when=$('memberPaymentDateInput').value;
+        if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when)||Number.isNaN(new Date(when).getTime())){alert('请输入有效的实际付款时间');return;}
+        const category=$('memberPaymentCategoryInput').value;
+        if(!CATEGORY.expense.some(c=>c.name===category)){alert('请选择有效的支出分类');return;}
+        const overrideText=$('memberActualCnyInput').value.trim();
+        const actual=overrideText?parseMoney(overrideText,'CNY'):null;
+        if(overrideText&&actual===null){alert('银行实际扣款人民币金额无效');return;}
+        if(state.records.some(r=>r.membershipId===member.id&&Math.abs(new Date(r.occurredAt)-new Date(when))<7*86400000)){
+          if(!confirm('近 7 天已为此会员记过付款记录。确定再次记入一笔吗？'))return;
+        }
+        let snapshot, amountCny;
+        if(currency==='CNY'){
+          amountCny=actual||amountMinor;
+          snapshot={rate:amountCny/amountMinor,date:when.slice(0,10),fetchedAt:new Date().toISOString(),source:'人民币原价'};
+        }else if(actual!==null){
+          amountCny=actual;
+          snapshot={rate:amountCny/100/(amountMinor/(10**moneyDef(currency).digits)),date:when.slice(0,10),fetchedAt:new Date().toISOString(),source:'实际扣款'};
+        }else{
+          try{snapshot=await getCnyRate(currency,true);}
+          catch(err){alert('暂时无法联网获取最新参考汇率。请联网后重试，或填写银行卡实际扣款的人民币金额。会员信息尚未保存。');return;}
+          amountCny=estimateCny(amountMinor,currency,snapshot.rate);
+        }
+        if(!Number.isSafeInteger(amountCny)||amountCny<=0||amountCny>1000000000000){alert('人民币金额无效');return;}
+        if(currency!=='CNY'&&snapshot.source==='Frankfurter'&&when.slice(0,10)!==localDatetime().slice(0,10)){
+          if(!confirm(`您选择的付款日期是 ${when.slice(0,10)}，但当前获取到的汇率日期为 ${snapshot.date}。该值不是历史付款日汇率。建议填写银行实际人民币扣款额。仍按当前参考汇率记账吗？`))return;
+        }
+        entry={id:makeId(),type:'expense',category,name:`${member.name} · 会员订阅`.slice(0,80),currency:'CNY',amountMinor:amountCny,occurredAt:when,createdAt:new Date().toISOString(),membershipId:member.id,
+          ...(currency!=='CNY'?{fx:{originalCurrency:currency,originalAmountMinor:amountMinor,rate:snapshot.rate,rateDate:snapshot.date,source:snapshot.source,capturedAt:snapshot.fetchedAt}}:{})};
+      }
+      const priorMembers=state.memberships,priorRecords=state.records;
+      state.memberships=old?state.memberships.map(m=>m.id===old.id?member:m):[...state.memberships,member];
+      if(entry)state.records=[entry,...state.records];
+      if(!saveBundle()){state.memberships=priorMembers;state.records=priorRecords;return;}
+      closeOverlay($('memberOverlay'));renderExtras();renderAll();toast(entry?'会员已保存，并记入人民币支出':'会员信息已保存');
+    }finally{button.disabled=false}
   });
   $('deleteMemberBtn').addEventListener('click',()=>{
     if(!editingMemberId||!confirm('确定删除这项会员记录吗？历史账目不会变化。'))return;
@@ -649,7 +787,7 @@
         if(lastDay!==day){const d=new Date(day+'T12:00');markup+=`<div class="date-heading">${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 · ${'日一二三四五六'[d.getDay()]}</div>`;lastDay=day;}
       }
       const c=getCategoryInfo(r.type,r.category);
-      const detail = `${escapeHTML(r.category)} · ${escapeHTML(r.currency)} · ${escapeHTML(state.sort==='newest'||state.sort==='oldest'?r.occurredAt.slice(11,16):r.occurredAt.replace('T',' '))}`;
+      const detail = `${escapeHTML(r.category)} · ${escapeHTML(r.currency)} · ${escapeHTML(state.sort==='newest'||state.sort==='oldest'?r.occurredAt.slice(11,16):r.occurredAt.replace('T',' '))}`+(r.fx?` · 原价 ${escapeHTML(money(r.fx.originalAmountMinor,r.fx.originalCurrency))} · 汇率 ${escapeHTML(r.fx.source)} ${escapeHTML(r.fx.rateDate)}`:'');
       markup+=`<button type="button" class="entry" data-id="${escapeHTML(r.id)}" aria-label="编辑${escapeHTML(r.name)}"><span class="cat-icon" style="color:${c.color};background:${c.bg}">${escapeHTML(c.icon)}</span><span class="entry-body"><span class="entry-name" style="display:block">${escapeHTML(r.name||r.category)}</span><span class="entry-sub">${detail}</span></span><span class="entry-amount ${r.type}">${r.type==='income'?'+':'−'}${escapeHTML(money(r.amountMinor,r.currency))}</span></button>`;
     }
     root.innerHTML=markup;
@@ -709,7 +847,8 @@
     const old=state.records.find(r=>r.id===state.editingId);
     const paymentCardId=state.formType==='expense'?$('paymentCardInput').value:'';
     if(paymentCardId&&!state.cards.some(c=>c.id===paymentCardId&&c.currency===currency)){alert('所选储值卡与金额币种不一致，请重新选择');return;}
-    const entry={id:old?.id||makeId(),type:state.formType,category:state.formCategory,name:$('nameInput').value.trim().slice(0,80)||state.formCategory,amountMinor,currency,occurredAt,createdAt:old?.createdAt||new Date().toISOString(),...(paymentCardId?{paymentCardId}:{})};
+    const keepOriginalFx=old?.fx&&state.formType==='expense'&&currency==='CNY'&&amountMinor===old.amountMinor;
+    const entry={id:old?.id||makeId(),type:state.formType,category:state.formCategory,name:$('nameInput').value.trim().slice(0,80)||state.formCategory,amountMinor,currency,occurredAt,createdAt:old?.createdAt||new Date().toISOString(),...(paymentCardId?{paymentCardId}:{}),...(old?.membershipId&&state.formType==='expense'?{membershipId:old.membershipId}:{}),...(keepOriginalFx?{fx:old.fx}:{})};
     const priorRecords=state.records,priorCards=state.cards;
     const nextCards=state.cards.map(c=>({...c}));
     if(old?.paymentCardId&&old.type==='expense'){

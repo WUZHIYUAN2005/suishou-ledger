@@ -1,4 +1,4 @@
-const REVISION = "restore-menu-20261122";
+const REVISION = "oauth-session-20261122";
 const CACHE_NAME = `suishou-ledger-static-${REVISION}`;
 const ENTRY_URL = new URL(
   `./index.html?v=${REVISION}`,

@@ -304,7 +304,8 @@ function install(nav){
  }
  function tick(t){
   raf=requestAnimationFrame(tick);
-  if(document.visibilityState==="hidden"||!nav.isConnected||nav.dataset.optics!=="webgl")return;
+  if(!nav.isConnected){dispose();return;}
+  if(document.visibilityState==="hidden"||nav.dataset.optics!=="webgl")return;
   try{
    if(geometryDirty||!cached)updateGeometry();
    const rect=cached.rect;

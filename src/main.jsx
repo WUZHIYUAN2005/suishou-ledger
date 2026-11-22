@@ -8,7 +8,7 @@ import {
 import { createRoot } from "react-dom/client";
 import catAvatar from "../assets/cat-avatar.webp";
 import cloudIcon from "../assets/icloud-cloud.png";
-import { getSnapshot, localMonth, saveCurrency, subscribe } from "./ledger.js";
+import { getSnapshot, localMonth, saveCurrency, subscribe, money } from "./ledger.js";
 import { putCover, readCovers, removeCover } from "./covers.js";
 import { Bills, Cards, inRange, Members, Overview, Stats } from "./pages.jsx";
 import {
@@ -104,6 +104,26 @@ function App() {
   const toastTimer = useRef(null);
   const modalTrigger = useRef(null);
   const selectedViewIndex = VIEWS.findIndex(([id]) => id === view);
+
+  // v29: publish read-only aggregate values to the visual sidebar.
+  // No storage format, import/export, Drive OAuth or ledger actions are altered.
+  useEffect(() => {
+    const currentMonth = localMonth();
+    const currentRows = ledger.records.filter((row) => row.occurredAt.startsWith(currentMonth));
+    const statsRows = currentRows.filter((row) => row.currency === ledger.statsCurrency);
+    const total = (type) => statsRows.filter((row) => row.type === type)
+      .reduce((sum, row) => sum + row.amountMinor, 0);
+    const display = {
+      income: money(total("income"), ledger.statsCurrency),
+      expense: money(total("expense"), ledger.statsCurrency),
+      count: String(currentRows.length) + " 笔",
+      zero: String(currentRows.filter((row) => row.amountMinor === 0).length) + " 笔",
+      members: String(ledger.memberships.length) + " 项",
+      cards: String(ledger.cards.length) + " 张",
+    };
+    window.__suishouV29Summary = display;
+    window.dispatchEvent(new CustomEvent("suishou-v29-summary", { detail: display }));
+  }, [ledger]);
 
   useEffect(() => {
     const onHash = () => {

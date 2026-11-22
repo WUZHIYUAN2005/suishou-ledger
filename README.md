@@ -35,3 +35,11 @@ pnpm run build
 - 支持浅色与深色主题、双层按钮与玻璃面板、触摸弹性反馈、减少动态效果设置和不支持 WebGL2 时的 CSS 回退。
 - 两个原有入口 `index.html` / `cloud.html` 都会加载同一份玻璃样式和交互脚本；Service Worker 缓存这些资源用于离线打开。
 - 没有新增第三方运行时脚本或 Google OAuth 密钥；这两个 UI 文件不读写账目数据。
+
+## v29 玻璃界面整合
+
+- 视觉资源：`v29-ledger.css`、`v29-integrate.js` 和 `assets/wallpapers/` 中 12 张深浅模式/电脑手机壁纸。
+- `src/main.jsx` 仅向界面发出只读汇总事件；真实账单、订阅、卡包及 Google Drive 同步仍由原有 React 业务模块维护。
+- 独立外观偏好使用 `suishou-ledger.v29.*` 本地键，未修改账本、备份或 OAuth 结构。
+- 通过 `pnpm install --frozen-lockfile && pnpm run build` 同步 `index.html`、`cloud.html`、`sw.js`；构建输出与源代码必须一起发布。
+- 切换到手机布局后可通过左侧抽屉恢复电脑布局；禁止用 `suishou-preview-v29.html` 替换生产入口。

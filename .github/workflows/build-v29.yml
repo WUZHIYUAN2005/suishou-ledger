@@ -1,0 +1,64 @@
+name: Build and verify Suishou Ledger
+on:
+  push:
+    branches:
+      - main
+      - release/v29-integrated-20261122
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build production HTML and service worker
+        run: pnpm run build
+      - name: Source and generated asset checks
+        run: |
+          node --check v29-integrate.js
+          node --check liquid-nav-optics.js
+          node --check liquid-ledger.js
+          node --check sw.js
+          node - <<'NODE'
+          const fs = require('fs');
+          const assert = require('assert/strict');
+          for (const file of ['index.html','cloud.html']) {
+            const html = fs.readFileSync(file, 'utf8');
+            assert(html.includes('v29-ledger.css?v=release-20261122-v1'));
+            assert(html.includes('v29-integrate.js?v=release-20261122-v1'));
+            assert(html.includes('auth-client.js'));
+            assert(html.includes('restore-data.html?embedded=1'));
+            assert(html.includes('Google Drive'));
+            assert(html.includes('createElement'));
+          }
+          const js = fs.readFileSync('v29-integrate.js','utf8');
+          assert(!js.includes('localStorage.clear('));
+          assert(!js.includes('ledger.records='));
+          assert(fs.readFileSync('src/ledger.js','utf8').includes('function money'));
+          for (const theme of ['garden','cosmos','tech'])
+            for (const mode of ['dark','light'])
+              for (const device of ['mobile','desktop'])
+                assert(fs.statSync('assets/wallpapers/'+theme+'-'+mode+'-'+device+'.webp').size>10000);
+          NODE
+      - name: Commit generated Pages entrypoints
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html cloud.html sw.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'Build v29 production Pages assets [skip ci]'
+            git push
+          fi

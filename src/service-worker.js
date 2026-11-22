@@ -8,6 +8,20 @@ const MATERIAL_URLS = [
   new URL("./liquid-ledger.css?v=studio-20261122-v5", self.registration.scope),
   new URL("./liquid-ledger.js?v=studio-20261122-v5", self.registration.scope),
   new URL("./liquid-nav-optics.js?v=optics-20261122-v3", self.registration.scope),
+  new URL("./v29-ledger.css?v=release-20261122-v1", self.registration.scope),
+  new URL("./v29-integrate.js?v=release-20261122-v1", self.registration.scope),
+  new URL("./assets/wallpapers/garden-dark-mobile.webp", self.registration.scope),
+  new URL("./assets/wallpapers/garden-dark-desktop.webp", self.registration.scope),
+  new URL("./assets/wallpapers/garden-light-mobile.webp", self.registration.scope),
+  new URL("./assets/wallpapers/garden-light-desktop.webp", self.registration.scope),
+  new URL("./assets/wallpapers/cosmos-dark-mobile.webp", self.registration.scope),
+  new URL("./assets/wallpapers/cosmos-dark-desktop.webp", self.registration.scope),
+  new URL("./assets/wallpapers/cosmos-light-mobile.webp", self.registration.scope),
+  new URL("./assets/wallpapers/cosmos-light-desktop.webp", self.registration.scope),
+  new URL("./assets/wallpapers/tech-dark-mobile.webp", self.registration.scope),
+  new URL("./assets/wallpapers/tech-dark-desktop.webp", self.registration.scope),
+  new URL("./assets/wallpapers/tech-light-mobile.webp", self.registration.scope),
+  new URL("./assets/wallpapers/tech-light-desktop.webp", self.registration.scope),
 ];
 const MATERIAL_PATHS = new Set(MATERIAL_URLS.map((item) => item.pathname));
 const ENTRY_PATHS = new Set(

@@ -62,6 +62,8 @@ async function smokePreviewBusiness(){
   await page.locator('#real-topup input[name=amount]').fill("10");
   await page.locator('#real-topup button[type=submit]').click();
   await page.waitForFunction(()=>window.__suishouBusinessBridge.getSnapshot().cards[0].balanceMinor===11000);
+  await page.evaluate(()=>window.__suishouLayout.set("mobile"));
+  await page.waitForFunction(()=>document.documentElement.dataset.layout==="mobile");
   await page.locator("#menu-open").click();
   await page.waitForSelector("#menu-drawer-layer.is-open");
   await page.locator('[data-action="backups"]').click();

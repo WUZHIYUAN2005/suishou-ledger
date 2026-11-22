@@ -4,6 +4,30 @@ import {readFile,stat} from "node:fs/promises";
 import {resolve,extname,sep} from "node:path";
 import {chromium} from "playwright";
 
+async function checkBackupDialog(page, title) {
+ const dialog=page.getByRole('dialog',{name:title});
+ const close=dialog.getByRole('button',{name:'关闭',exact:true});
+ const panel=dialog.locator('#suishou-long-auth');
+ const enable=panel.getByRole('button',{name:'启用长期授权'});
+ const revoke=panel.getByRole('button',{name:'撤销本设备长期授权'});
+ const regular=dialog.locator('[data-real="connect-cloud"]');
+ const gradient=button=>button.evaluate(element=>getComputedStyle(element).backgroundImage);
+ assert.notEqual(await gradient(regular),'none');
+ assert.equal(await gradient(enable),await gradient(regular),'Long-term authorization should use the v29 button style');
+ assert.equal(await gradient(revoke),await gradient(regular));
+ await enable.click();
+ assert.match(await panel.getByRole('status').innerText(),/有效的 HTTPS/);
+
+ const closeY=(await close.boundingBox()).y;
+ const last=dialog.getByRole('button',{name:'清空账单'});
+ await last.evaluate(button=>button.scrollIntoView({block:'nearest'}));
+ const [button,frame]=await Promise.all([last.boundingBox(),dialog.boundingBox()]);
+ assert.ok(button.y+button.height<=frame.y+frame.height,'The last backup button should scroll inside the dialog');
+ assert.equal((await close.boundingBox()).y,closeY,'Closing should remain available while scrolling the backup controls');
+ const overflow=await dialog.getByRole('region',{name:'备份设置'}).evaluate(el=>el.scrollWidth-el.clientWidth);
+ assert.ok(overflow<=1,'The backup actions should fit the width of the dialog');
+}
+
 async function visualSnapshot(browser, url, layout) {
  const page=await browser.newPage({viewport:layout==='desktop'?{width:1440,height:900}:{width:390,height:844}});
  try {
@@ -100,6 +124,11 @@ async function smokePreviewBusiness(){
   });
   await page.goto(base,{waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>!!window.__suishouBusinessBridge,{timeout:15000});
+  await page.setViewportSize({width:1440,height:768});
+  await page.locator('.desktop-side [data-action="cloud"]').click();
+  await checkBackupDialog(page,'Google Drive 云端同步');
+  await page.getByRole('button',{name:'关闭',exact:true}).click();
+  await page.setViewportSize({width:1440,height:900});
   await page.evaluate(()=>localStorage.setItem("preview.smoke.sentinel","retain"));
   assert.equal(await page.locator("#nav .tab").count(),5);
   assert.equal(await page.locator(".bill-row").count(),0,"Demo records must not appear in production");
@@ -208,6 +237,7 @@ async function smokePreviewBusiness(){
   await page.waitForSelector("#menu-drawer-layer.is-open");
   await page.locator('[data-action="backups"]').click();
   await page.waitForSelector("#real-import-file",{state:"attached"});
+  await checkBackupDialog(page,'数据管理与备份');
   assert.match(await page.locator("#real-cloud-status").innerText(),/本地账本|Drive|同步/);
   const [download]=await Promise.all([page.waitForEvent("download"),page.locator('[data-real="export-json"]').click()]);
   const name=download.suggestedFilename();

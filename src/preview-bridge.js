@@ -173,25 +173,33 @@ function bootPreviewBridge(){
   }
   function openCloud(only=false){
     const l=getSnapshot();
+    const backupActions = (buttons) => `<div class="form-actions" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr))">${buttons}</div>`;
     modal(only?"Google Drive 云端同步":"数据管理与备份",`
+    <div id="real-backup-content" role="region" aria-label="备份设置" tabindex="0" style="min-height:0;overflow:auto">
      <section class="management-section"><h3>Google Drive</h3>
        <p id="real-cloud-status" role="status">${safe(l.cloudMessage)}</p>
        <p class="subtext">云端备份沿用原版同步格式，不保存 Google 密码。</p>
-       <div class="form-actions">
-         ${btn(l.cloudReady?"重新授权":"连接 Google Drive","connect-cloud")}
-         ${btn(l.cloudFileId?"立即同步":"首次备份","sync-cloud")}
-         ${btn("停止同步","disconnect-cloud")}
-       </div>
+       ${backupActions(btn(l.cloudReady?"重新授权":"连接 Google Drive","connect-cloud") +
+         btn(l.cloudFileId?"立即同步":"首次备份","sync-cloud") +
+         btn("停止同步","disconnect-cloud"))}
        ${field("显示账单币种",select("statsCurrency",CURRENCIES.map(c=>[c.code,c.name+" · "+c.code]),S.currency,"id='real-stats-currency'"))}
        ${field("自动备份频率",select("backupFrequency",Object.entries(BACKUP_FREQUENCIES).map(([id,b])=>[id,b.label]),l.cloudFrequency,"id='real-backup-frequency'"))}
        <div class="form-actions">${btn("管理云端备份位置","cloud-folder")}</div>
      </section>
-     <section class="management-section"><h3>本地 JSON 备份</h3>
+     <section class="management-section" style="margin-top:20px"><h3>本地 JSON 备份</h3>
        <p class="subtext">导出包含账目、卡包与订阅。迁移备份还包含卡片封面。</p>
-       <div class="form-actions">${btn("导出 JSON","export-json")}${btn("导出迁移备份（含封面）","export-migration")}${btn("选择 JSON 恢复","pick-import")}${btn("安全合并恢复","safe-restore")}${btn("清空账单","clear-records")}</div>
+       ${backupActions(btn("导出 JSON","export-json") + btn("导出迁移备份（含封面）","export-migration") +
+         btn("选择 JSON 恢复","pick-import") + btn("安全合并恢复","safe-restore") + btn("清空账单","clear-records"))}
        <input type="file" id="real-import-file" accept=".json,application/json" hidden>
        <p class="subtext">导入前会再次确认覆盖范围。旧版 V1 备份仅替换账单。</p>
-     </section>`);
+     </section>
+    </div>`);
+    const dialog = $("real-backup-content").parentElement;
+    dialog.style.display = "flex";
+    dialog.style.flexDirection = "column";
+    // The v29 desktop glass rule gives the shell visible overflow with !important.
+    dialog.style.setProperty("overflow", "hidden", "important");
+    dialog.querySelector(".dialog-head").style.flexShrink = "0";
     void loadGoogleAuthorization().catch(e=>console.warn("Google 授权库暂不可用",e));
   }
   async function chooseFolder(){

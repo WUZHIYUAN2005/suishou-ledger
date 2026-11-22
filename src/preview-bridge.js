@@ -1,5 +1,5 @@
 import {CATEGORY,CURRENCIES,BACKUP_FREQUENCIES,getSnapshot,subscribe,localDatetime,saveCurrency,getCategoryInfo,money,loadGoogleAuthorization,getGoogleTokenFromClick,syncCloud,disconnectCloud,setBackupFrequency,listBackupFolders,createBackupFolder,setBackupFolder,commit,validateRecords,validateCards,validateMemberships} from "./ledger.js";
-import {amountInput,saveEntry,deleteEntry,saveCard,deleteCard,topupCard,CYCLE_NAMES,saveMember,deleteMember,downloadBackup,downloadMigrationBackup,importBackup,clearRecords} from "./actions.js";
+import {amountInput,saveEntry,deleteEntry,saveCard,deleteCard,topupCard,CYCLE_NAMES,saveMember,recordMemberPayment,deleteMember,downloadBackup,downloadMigrationBackup,importBackup,clearRecords} from "./actions.js";
 import {readCovers,putCover,removeCover,readCoverImage} from "./covers.js";
 
 function bootPreviewBridge(){
@@ -16,11 +16,11 @@ function bootPreviewBridge(){
   const error=(e)=>{console.error("随手账本真实数据操作失败",e);view.toast(e?.message||"操作失败");};
   const field=(label,control)=>`<div class="field"><label>${safe(label)}${control}</label></div>`;
   const input=(name,value="",type="text",attrs="")=>`<input name="${name}" type="${type}" value="${safe(value)}" ${attrs}>`;
-  const btn=(label,action)=>`<button type="button" class="glass" data-real="${action}">${label}</button>`;
+  const btn=(label,action)=>`<button type="button" class="glass" data-real="${safe(action)}">${label}</button>`;
   const submit=(label)=>`<button class="glass" type="submit">${label}</button>`;
   const opts=(items,value)=>items.map(([id,label])=>`<option value="${safe(id)}" ${id===value?"selected":""}>${safe(label)}</option>`).join("");
   const select=(name,items,value,attrs="")=>`<select name="${name}" ${attrs}>${opts(items,value)}</select>`;
-  const actions=(body)=>`<div class="form-actions">${btn("取消","close")}${body}</div>`;
+  const actions=(body,wrap=false)=>`<div class="form-actions"${wrap?' style="flex-wrap:wrap"':''}>${btn("取消","close")}${body}</div>`;
   const modal=(title,html)=>view.modal(title,html);
   const formatDate=(date)=>{const x=String(date||"");return /^\d{4}-\d{2}-\d{2}$/.test(x)?`${x.slice(5,7)}月${x.slice(8,10)}日`:x;};
   const values=(form)=>Object.fromEntries(new FormData(form));
@@ -105,14 +105,54 @@ function bootPreviewBridge(){
       ${field("周期",select("cycle",Object.entries(CYCLE_NAMES),m?.cycle||"month"))}
       ${field("下次扣费日期",input("nextDate",date,"date","required"))}
       ${field("备注",input("note",m?.note||"","text","maxlength='100'"))}
-      ${field("状态",`<label><input type="checkbox" name="active" ${m?.active!==false?"checked":""}> 订阅有效</label>`)}
-      ${field("自动续订",`<label><input type="checkbox" name="autoRenew" ${m?.autoRenew!==false?"checked":""}> 自动续订</label>`)}
-      ${field("同时生成实际付款账单（可选）",`<label><input type="checkbox" name="paid"> 此次已经付款</label>`)}
-      ${field("实际付款时间",input("when",now(),"datetime-local"))}
-      ${field("付款支出分类",select("paymentCategory",CATEGORY.expense.map(c=>[c.name,c.name]),"娱乐休闲"))}
-      ${field("银行实际扣款人民币金额（外币可选）",input("actualCny","","number","min='0.01' step='any'"))}
-      ${actions(submit(m?"保存修改":"添加订阅")+(m?btn("删除订阅","delete-member:"+m.id):""))}
+      <div class="field"><label><input type="checkbox" name="active" style="width:auto;padding:0" ${m?.active !== false ? "checked" : ""}> 订阅有效</label></div>
+      <div class="field"><label><input type="checkbox" name="autoRenew" style="width:auto;padding:0" ${m?.autoRenew !== false ? "checked" : ""}> 自动续订</label></div>
+      ${actions(submit(m ? "保存修改" : "添加订阅") +
+        '<button class="glass" type="submit" name="intent" value="payment">保存并登记付款</button>' +
+        (m ? btn("删除订阅", "delete-member:" + m.id) : ""), true)}
     </form>`);
+  }
+  function openMemberPayment(id) {
+    const member = getSnapshot().memberships.find((item) => item.id === id);
+    if (!member) throw new Error("此订阅已被移除，请重新选择。");
+    const originalAmount = safe(fmt(member.amountMinor, member.currency));
+    const isForeign = member.currency !== "CNY";
+    modal("登记订阅付款", `<form id="real-member-payment" data-id="${safe(id)}">
+      <p><b>${safe(member.name)}</b> · ${originalAmount}</p>
+      ${field("实际付款时间", input("when", now(), "datetime-local", "required"))}
+      ${field("付款支出分类", select("category", CATEGORY.expense.map(c => [c.name, c.name]), "娱乐休闲"))}
+      ${field("银行实际扣款人民币金额（选填）", input("actualCny", "", "number", "min='0.01' step='0.01'"))}
+      <p class="subtext">${isForeign ? "留空时按最新参考汇率折算，确认后记入一笔人民币支出。" : "留空时按订阅价格记入一笔人民币支出。"}</p>
+      <p class="subtext" role="alert" hidden></p>
+      ${actions(submit("确认记入付款"))}
+    </form>`);
+    const form = $("real-member-payment");
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void submitMemberPayment(form, member);
+    });
+    form.elements.when.focus({ preventScroll: true });
+  }
+  async function submitMemberPayment(form, member) {
+    if (form.getAttribute("aria-busy") === "true") return;
+    const data = values(form);
+    const message = form.querySelector('[role="alert"]');
+    const submitButton = form.querySelector('button[type="submit"]');
+    message.hidden = true;
+    form.setAttribute("aria-busy", "true");
+    submitButton.disabled = true;
+    try {
+      if (await recordMemberPayment(member, data)) {
+        view.closeModal();
+        view.toast("已记入订阅付款");
+      }
+    } catch (failure) {
+      message.textContent = failure.message;
+      message.hidden = false;
+    } finally {
+      form.removeAttribute("aria-busy");
+      submitButton.disabled = false;
+    }
   }
   function openCard(id=null){
     const c=getSnapshot().cards.find(x=>x.id===id);
@@ -189,9 +229,15 @@ function bootPreviewBridge(){
   }
   const intercepted=new Set(["detail","cloud","backups","add-sub","add-card","select-card","topup","cover"]);
   document.addEventListener("click",e=>{
+    const payment = $("real-member-payment");
+    if (payment?.getAttribute("aria-busy") === "true" &&
+        (e.target.id === "modal-layer" || e.target.closest?.('#modal-layer [data-action="close"], #real-member-payment [data-real="close"]'))) {
+      stop(e);
+      return;
+    }
     const action=e.target.closest?.("[data-real]")?.dataset.real;
     if(action){
-      stop(e);
+      e.preventDefault();e.stopPropagation();
       try{void handleReal(action).catch(error);}catch(err){error(err);}
       return;
     }
@@ -206,7 +252,8 @@ function bootPreviewBridge(){
     if(add){stop(e);openEntry();}
   },true);
   async function handlePrototype(action){
-    const [key,value]=action.split(":");
+    const [key,...parts]=action.split(":");
+    const value=parts.join(":");
     if(key==="detail")openEntry(value);
     else if(key==="cloud")openCloud(true);
     else if(key==="backups")openCloud(false);
@@ -262,8 +309,18 @@ function bootPreviewBridge(){
     void (async()=>{
       const d=values(form),id=form.dataset.id||null;
       if(form.id==="real-entry")saveEntry(id,{type:d.type,name:d.name,amount:d.amount,currency:d.currency,category:d.category,occurredAt:d.occurredAt,paymentCardId:d.type==="expense"?d.paymentCardId:""});
-      if(form.id==="real-member")await saveMember(id,{name:d.name,amount:d.amount,currency:d.currency,cycle:d.cycle,nextDate:d.nextDate,note:d.note||"",active:!!form.elements.active.checked,autoRenew:!!form.elements.autoRenew.checked,paid:!!form.elements.paid.checked,when:d.when,category:d.paymentCategory,actualCny:d.actualCny||""});
-      if(form.id==="real-card"){const newId=saveCard(id,{name:d.name,balance:d.balance,currency:d.currency});S.card=getSnapshot().cards.findIndex(c=>c.id===newId);}
+      if (form.id === "real-member") {
+        const memberId = await saveMember(id, {
+          ...d,
+          active: form.elements.active.checked,
+          autoRenew: form.elements.autoRenew.checked,
+        });
+        if (e.submitter?.value === "payment") {
+          openMemberPayment(memberId);
+          return;
+        }
+      }
+      if(form.id==="real-card"){const newId=saveCard(id,{name:d.name,balance:d.balance,currency:d.currency});S.card=getSnapshot().cards.findIndex(c=>c.id===newId);updateView();}
       if(form.id==="real-topup")topupCard(id,d.amount);
       if(form.id==="real-cloud-folder"){
         const folder=d.newFolder?.trim()?await createBackupFolder(d.newFolder.trim()):null;
@@ -273,6 +330,12 @@ function bootPreviewBridge(){
     })().catch(error);
   },true);
   document.addEventListener("keydown",e=>{
+    const payment = $("real-member-payment");
+    if (payment && e.key === "Escape") {
+      e.preventDefault();
+      if (payment.getAttribute("aria-busy") !== "true") view.closeModal();
+      return;
+    }
     const target=e.target.closest?.(".sub-row[data-real],.wallet-card[data-real]");
     if(target&&(e.key==="Enter"||e.key===" ")){e.preventDefault();target.click();}
   });

@@ -137,6 +137,7 @@ function bootPreviewBridge(){
          ${btn(l.cloudFileId?"立即同步":"首次备份","sync-cloud")}
          ${btn("停止同步","disconnect-cloud")}
        </div>
+       ${field("显示账单币种",select("statsCurrency",CURRENCIES.map(c=>[c.code,c.name+" · "+c.code]),S.currency,"id='real-stats-currency'"))}
        ${field("自动备份频率",select("backupFrequency",Object.entries(BACKUP_FREQUENCIES).map(([id,b])=>[id,b.label]),l.cloudFrequency,"id='real-backup-frequency'"))}
        <div class="form-actions">${btn("管理云端备份位置","cloud-folder")}</div>
      </section>
@@ -212,7 +213,7 @@ function bootPreviewBridge(){
       const c=S.cards[S.card];
       if(!c){view.toast("请先添加储值卡");return;}
       const choose=document.createElement("input");choose.type="file";choose.accept="image/png,image/jpeg,image/webp";
-      choose.onchange=async()=>{try{const file=choose.files?.[0];if(!file)return;const blob=await readCoverImage(file);await putCover(c.id,blob);await loadCover(c.id);view.toast("卡片封面已保存");}catch(e){error(e);}};
+      choose.onchange=async()=>{try{const file=choose.files?.[0];if(!file)return;await readCoverImage(file);await putCover(c.id,file);await loadCover(c.id);view.toast("卡片封面已保存");}catch(e){error(e);}};
       choose.click();
     }
   }
@@ -245,6 +246,7 @@ function bootPreviewBridge(){
     }
     if(element?.id==="real-entry-type"||element?.id==="real-entry-currency")entryOptions();
     if(element?.id==="real-backup-frequency")setBackupFrequency(element.value);
+    if(element?.id==="real-stats-currency"||element?.id==="real-stat-page-currency")saveCurrency(element.value);
   });
   document.addEventListener("submit",e=>{
     const form=e.target;
@@ -270,6 +272,10 @@ function bootPreviewBridge(){
   // Keep the original v29 DOM, typography and glass CSS. Only attach click
   // targets to existing rows; do not wrap them in new glass cards.
   function attachRowActions(){
+    if(S.tab==="stats"){
+      const sel=document.querySelector("#content select[aria-label='统计币种']");
+      if(sel){sel.innerHTML=opts(CURRENCIES.map(c=>[c.code,c.name+" · "+c.code]),S.currency);sel.id="real-stat-page-currency";}
+    }
     if(S.tab==="subs"){
       document.querySelectorAll(".sub-row").forEach((el,i)=>{
         if(S.subscriptions[i]){el.dataset.real="edit-sub:"+S.subscriptions[i].id;el.tabIndex=0;el.setAttribute("role","button");el.setAttribute("aria-label","编辑 "+S.subscriptions[i].name);}
@@ -285,6 +291,8 @@ function bootPreviewBridge(){
   }
   const originalRender=view.render;
   view.render=()=>{originalRender();attachRowActions();};
+  const contentRoot=$("content");
+  if(contentRoot)new MutationObserver(()=>attachRowActions()).observe(contentRoot,{childList:true});
   subscribe(updateView);
   updateView();
   if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("离线缓存暂不可用",e));

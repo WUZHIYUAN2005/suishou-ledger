@@ -160,7 +160,7 @@
     c.setAttribute("aria-hidden","true");
     try{
       const gl=c.getContext("webgl2",{
-        alpha:true,antialias:false,premultipliedAlpha:false,depth:false,stencil:false,powerPreference:"low-power"
+        alpha:true,antialias:false,premultipliedAlpha:false,preserveDrawingBuffer:true,depth:false,stencil:false,powerPreference:"low-power"
       });
       if(!gl)return;
       // Lightweight original SDF/dispersion shader using Studio's techniques.

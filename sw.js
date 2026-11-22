@@ -1,12 +1,13 @@
-const REVISION = "studio-glass-20261122-v2";
+const REVISION = "studio-glass-20261122-v3";
 const CACHE_NAME = `suishou-ledger-static-${REVISION}`;
 const ENTRY_URL = new URL(
   `./index.html?v=${REVISION}`,
   self.registration.scope,
 );
 const MATERIAL_URLS = [
-  new URL("./liquid-ledger.css?v=studio-20261122-v2", self.registration.scope),
-  new URL("./liquid-ledger.js?v=studio-20261122-v2", self.registration.scope),
+  new URL("./liquid-ledger.css?v=studio-20261122-v3", self.registration.scope),
+  new URL("./liquid-ledger.js?v=studio-20261122-v3", self.registration.scope),
+  new URL("./liquid-nav-optics.js?v=optics-20261122-v1", self.registration.scope),
 ];
 const MATERIAL_PATHS = new Set(MATERIAL_URLS.map((item) => item.pathname));
 const ENTRY_PATHS = new Set(

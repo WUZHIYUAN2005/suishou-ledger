@@ -387,3 +387,39 @@ body::before{
 .view-tabs button:not(:disabled):hover{background:transparent}
 .view-tabs button[aria-selected="true"] .glass-face{border:0;box-shadow:none}
 
+
+/* True WebGL2 refractive tab bar: ONE base, NO per-tab backdrops.
+   Transparent CSS alone does not remove per-element backdrop-filter. */
+.view-tabs{overflow:hidden;touch-action:pan-y}
+.view-tabs [role="tab"].glass-button,
+.view-tabs [role="tab"].glass-button:hover,
+.view-tabs [role="tab"].glass-button:active,
+.view-tabs [role="tab"].glass-button[aria-selected="true"]{
+  position:relative;z-index:2;isolation:auto;
+  background:transparent!important;
+  border:0!important;box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  transform:none!important;
+}
+.view-tabs [role="tab"].glass-button::before,
+.view-tabs [role="tab"].glass-button::after{
+  content:none!important;display:none!important;
+}
+.view-tabs [role="tab"].glass-button .glass-face{
+  border:0!important;box-shadow:none!important;background:transparent!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  transform:none!important;
+}
+.view-tabs [role="tab"].glass-button:focus-visible{
+  outline:2px solid var(--accent);outline-offset:-2px;
+}
+.view-tabs[data-optics="webgl"]{
+  border:0!important;background:none!important;box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+}
+.view-tabs[data-optics="webgl"] .active-lens{display:none!important}
+.view-tabs>.nav-optics-canvas{
+  position:absolute;inset:0;width:100%;height:100%;
+  border-radius:inherit;pointer-events:none;z-index:0;
+  display:block;
+}

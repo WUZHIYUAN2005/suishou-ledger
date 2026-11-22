@@ -108,8 +108,7 @@ function App() {
   // v29: publish read-only aggregate values to the visual sidebar.
   // No storage format, import/export, Drive OAuth or ledger actions are altered.
   useEffect(() => {
-    const currentMonth = localMonth();
-    const currentRows = ledger.records.filter((row) => row.occurredAt.startsWith(currentMonth));
+    const currentRows = inRange(ledger.records, range);
     const statsRows = currentRows.filter((row) => row.currency === ledger.statsCurrency);
     const total = (type) => statsRows.filter((row) => row.type === type)
       .reduce((sum, row) => sum + row.amountMinor, 0);
@@ -120,10 +119,14 @@ function App() {
       zero: String(currentRows.filter((row) => row.amountMinor === 0).length) + " 笔",
       members: String(ledger.memberships.length) + " 项",
       cards: String(ledger.cards.length) + " 张",
+      period: range.all ? "全部时间" : range.month.replace("-", " 年 ") + " 月",
+      ratio: total("income") + total("expense") > 0
+        ? (100 * total("income") / (total("income") + total("expense"))).toFixed(1)
+        : "50",
     };
     window.__suishouV29Summary = display;
     window.dispatchEvent(new CustomEvent("suishou-v29-summary", { detail: display }));
-  }, [ledger]);
+  }, [ledger, range]);
 
   useEffect(() => {
     const onHash = () => {

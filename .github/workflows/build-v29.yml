@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - release/v29-integrated-20261122
+      - staging/v29-exact-ui-20261122
   workflow_dispatch:
 permissions:
   contents: write
@@ -26,40 +27,42 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build production HTML and service worker
         run: pnpm run build
-      - name: Source and generated asset checks
+      - name: Verify source and generated v29 HTML are connected safely
         run: |
-          node --check v29-integrate.js
-          node --check liquid-nav-optics.js
-          node --check liquid-ledger.js
+          node --check scripts/build.mjs
+          node --check src/preview-bridge.js
+          node --check src/ledger.js
+          node --check src/actions.js
+          node --check src/covers.js
+          node --check src/drive.js
+          node --check auth-client.js
           node --check sw.js
           node - <<'NODE'
-          const fs = require('fs');
-          const assert = require('assert/strict');
-          for (const file of ['index.html','cloud.html']) {
-            const html = fs.readFileSync(file, 'utf8');
-            assert(html.includes('v29-ledger.css?v=release-20261122-v1'));
-            assert(html.includes('v29-integrate.js?v=release-20261122-v1'));
-            assert(html.includes('auth-client.js'));
-            assert(html.includes('restore-data.html?embedded=1'));
-            assert(html.includes('Google Drive'));
-            assert(html.includes('createElement'));
+          const fs=require('node:fs');
+          const assert=require('node:assert/strict');
+          const baseline=fs.readFileSync('design-baseline/suishou-preview-v29.html','utf8');
+          for(const path of ['index.html','cloud.html']){
+            const html=fs.readFileSync(path,'utf8');
+            assert(html.includes('suishou-wallpaper-library'), 'Wallpaper library missing');
+            assert(html.includes('suishou-preview.layout.v20'), 'Original mobile/desktop layout missing');
+            assert(html.includes('src/preview-bridge.js'), 'Business bridge not included');
+            assert(html.includes('auth-client.js'), 'Long-term OAuth integration missing');
+            const baselineStyle=baseline.match(/<style[^>]*>[\\s\\S]*?<\\/style>/g);
+            const builtStyle=html.match(/<style[^>]*>[\\s\\S]*?<\\/style>/g);
+            assert.deepEqual(builtStyle,baselineStyle,'Visual CSS must be byte-for-byte unchanged');
           }
-          const js = fs.readFileSync('v29-integrate.js','utf8');
-          assert(!js.includes('localStorage.clear('));
-          assert(!js.includes('ledger.records='));
-          assert(fs.readFileSync('src/ledger.js','utf8').includes('function money'));
-          for (const theme of ['garden','cosmos','tech'])
-            for (const mode of ['dark','light'])
-              for (const device of ['mobile','desktop'])
-                assert(fs.statSync('assets/wallpapers/'+theme+'-'+mode+'-'+device+'.webp').size>10000);
+          const source=fs.readFileSync('src/preview-bridge.js','utf8');
+          assert(source.includes('saveEntry(')&&source.includes('saveMember(')&&source.includes('saveCard('));
+          assert(source.includes('syncCloud(true)')&&source.includes('importBackup(file)'));
           NODE
       - name: Install headless Chromium for browser verification
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
           npx playwright install --with-deps chromium
       - name: Exercise desktop, mobile and original ledger actions
-        run: node scripts/smoke-v29.mjs
+        run: node scripts/smoke-preview-business.mjs
       - name: Commit generated Pages entrypoints
+        if: github.ref == 'refs/heads/main'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

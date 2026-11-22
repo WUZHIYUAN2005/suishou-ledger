@@ -37,8 +37,8 @@ jobs:
           const assert = require('assert/strict');
           for (const file of ['index.html','cloud.html']) {
             const html = fs.readFileSync(file, 'utf8');
-            assert(html.includes('v29-ledger.css?v=release-20261122-v1'));
-            assert(html.includes('v29-integrate.js?v=release-20261122-v1'));
+            assert(html.includes('v29-ledger.css?v=release-20261122-v2'));
+            assert(html.includes('v29-integrate.js?v=release-20261122-v2'));
             assert(html.includes('auth-client.js'));
             assert(html.includes('restore-data.html?embedded=1'));
             assert(html.includes('Google Drive'));

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="index,follow">
+<meta name="color-scheme" content="light dark">
+<title>隐私政策 · Privacy Policy | suishouledger</title>
+<meta name="description" content="suishouledger（随手账本）隐私政策：本地账目、Google Drive 同步、OAuth 授权与数据管理。">
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light dark;line-height:1.75}
+*{box-sizing:border-box}body{margin:0;color:#222638;background:linear-gradient(145deg,#eaf1ff,#f8f8ff 45%,#eaf8f6);min-height:100vh}
+main{max-width:900px;margin:48px auto;padding:clamp(24px,5vw,56px);background:rgba(255,255,255,.82);border:1px solid rgba(255,255,255,.85);border-radius:28px;box-shadow:0 24px 80px rgba(43,63,100,.12);backdrop-filter:blur(18px)}
+h1{font-size:clamp(27px,4vw,38px);line-height:1.3}h2{font-size:1.2rem;margin-top:2em}p,li{font-size:15px}ul{padding-left:1.5em}
+a{color:#2257bd;text-underline-offset:3px}.muted{color:#606a7e}.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}.top a{font-size:14px}hr{border:0;border-top:1px solid #d7dce5;margin:36px 0}
+@media(prefers-color-scheme:dark){body{color:#edf1ff;background:linear-gradient(145deg,#101828,#1b2137 60%,#122b30)}main{background:rgba(34,40,59,.82);border-color:rgba(255,255,255,.12);box-shadow:none}a{color:#9dc0ff}.muted{color:#b5bfd1}hr{border-color:#4d566b}}
+@media(max-width:700px){main{margin:12px;padding:24px;border-radius:22px}}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><strong>suishouledger · 随手账本</strong><a href="./index.html">返回应用 / Back to app</a></div>
+<h1>隐私政策 <span class="muted">/ Privacy Policy</span></h1>
+<p class="muted">更新日期 / Last updated: 2026-11-22</p>
+<p>suishouledger 是个人记账网页，提供账单、统计、订阅、卡包和可选的 Google Drive 数据同步。本政策说明应用如何处理信息。应用由个人开发维护；如有疑问，请联系 <a href="mailto:wuzhiyuanwzy2005@gmail.com">wuzhiyuanwzy2005@gmail.com</a>。</p>
+<h2>1. 处理哪些数据</h2>
+<p>应用处理您输入的收支金额、日期、分类、备注、订阅名称及周期、卡片资料，以及您选定的界面设置。您上传的卡片封面保存在当前浏览器的 IndexedDB，通常不会随账本 JSON 或 Google Drive 账本同步到其他设备。应用可能在 Google 授权过程中访问必要的账号信息及 OAuth 凭证。</p>
+<h2>2. 本地存储及 Google Drive 同步</h2>
+<p>账本和设置可保存在本机浏览器存储中。Google Drive 同步是可选功能；仅在您授予相应权限后，应用才会使用 Google Drive API 查找、创建、读取和更新应用的账本 JSON 文件，以及按您在应用内的操作管理备份文件夹。已有同步使用 <code>drive.file</code> 等实际授予的权限，不代表应用可无限制读取整个云端硬盘。同步和恢复可能使不同设备获得您主动保存的账本数据。</p>
+<h2>3. Google 账号授权与可选长期登录</h2>
+<p>常规 Google Drive 同步由浏览器直接调用 Google API。项目还提供一个<b>可选、需单独部署并主动启用</b>的 Cloudflare OAuth Worker：启用后，它以加密形式保存 Google Refresh Token，并为当前设备维护随机会话凭证，以便申请新的短期访问令牌。该 Worker 不以账本数据库的形式保存您的账单、订阅或卡包正文；浏览器仍与 Google Drive 进行数据同步。该功能未启用时，不会因为本政策而自动收集或存储后端凭证。</p>
+<h2>4. 使用目的与共享</h2>
+<p>信息仅用于提供记账、备份、恢复、同步和授权会话功能。我们不会出售个人财务记录，不将 Google 用户数据用于广告定向，也不会将其用于训练通用人工智能模型。相关信息可能由提供必要基础设施的 Google、GitHub Pages 以及启用时的 Cloudflare 按其服务条款处理。除实现您请求的功能及法律要求外，不主动向第三方披露账本内容。</p>
+<h2>5. 安全与保留</h2>
+<p>网页与 Google 服务通过 HTTPS 通信。可选的长期登录后端设计为使用 AES-GCM 加密保存 Refresh Token；在您实际配置、部署之前，这项保护不应视为已启用。数据保留在本地浏览器及您选择的 Google Drive 位置，直到您清除、删除或相应服务按其政策处理。无法保证任何网络传输或存储绝对安全。</p>
+<h2>6. 查看、导出、删除和撤销授权</h2>
+<ul>
+<li>您可以在应用中编辑或删除账目，并使用现有 JSON 导出与恢复功能。</li>
+<li>清理浏览器站点数据可移除该设备的本地账本、偏好设置及单独保存在 IndexedDB 的封面；操作前请先备份。</li>
+<li>可在自己的 Google Drive 删除相应账本及备份文件。请注意撤销 Google 授权不会自动删除已存储的 Drive 文件。</li>
+<li>可通过 <a href="https://myaccount.google.com/connections">Google 账号中的第三方连接</a>撤销 Google 授权。若启用了长期登录后端，还可使用应用中的撤销长期授权功能。</li>
+</ul>
+<h2>7. 儿童与政策更新</h2>
+<p>本应用并非专门面向儿童设计。若数据处理方式改变，我们将更新本页面并修改更新日期。</p>
+<hr>
+<h2 lang="en">English summary</h2>
+<div lang="en">
+<p>suishouledger is a personal finance web app for transactions, statistics, subscriptions, cards and optional Google Drive backup and sync. The app processes information you enter, including transaction values, dates, notes, subscription details, card details and app preferences. Card cover images are stored in the current browser's IndexedDB and generally are not included in synced JSON backups.</p>
+<p>Your data may be stored locally in your browser. With your permission, the app uses Google Drive API to find, create, read and update its ledger backup files and manage backup folders as requested. The standard sync flow accesses Google Drive directly from your browser. An optional, separately deployed Cloudflare OAuth Worker can store encrypted Google refresh tokens and device session credentials for automatic token renewal; it does not store the ledger contents. That optional backend is not active unless configured and enabled.</p>
+<p>We use data to provide the requested app functionality. We do not sell financial information, use Google user data for targeted advertising, or use such data to train general-purpose AI models. Necessary infrastructure providers may include Google, GitHub Pages and, if enabled, Cloudflare. Users can edit or export ledger data, clear browser storage, delete their own Drive backup files, and revoke access through <a href="https://myaccount.google.com/connections">Google Account connections</a>. Revoking access does not automatically delete existing Drive files.</p>
+<p>Our use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. For privacy inquiries, contact <a href="mailto:wuzhiyuanwzy2005@gmail.com">wuzhiyuanwzy2005@gmail.com</a>.</p>
+</div>
+</main>
+</body>
+</html>

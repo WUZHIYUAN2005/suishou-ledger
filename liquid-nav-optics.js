@@ -153,28 +153,28 @@ function install(nav){
  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
  const backdrop=document.createElement("canvas"),ctx=backdrop.getContext("2d",{alpha:false});
  let dpr=1,patchW=0,patchH=0,last=0,raf=0;
- const finger={id:null,startX:0,startY:0,x:0,active:false,opacity:0};
- function pointer(e){
-  if((e.type==="pointerup"||e.type==="pointercancel")&&finger.id===e.pointerId){
-   finger.id=null;finger.active=false;return;
+ // One continuous lens: selected tab is always visible. While dragging,
+ // follow the gesture's CSS offset, then settle at the new selected tab.
+ // React's aria-selected is authoritative for click/key/hash changes.
+ let lensX=NaN;
+ function targetLens(rect){
+  const tabs=[...nav.querySelectorAll('[role="tab"]')];
+  if(!tabs.length)return {x:rect.width/10,width:rect.width/5,dragging:false};
+  const current=tabs.find(el=>el.getAttribute("aria-selected")==="true")||tabs[0];
+  const selected=current.getBoundingClientRect();
+  const first=tabs[0].getBoundingClientRect();
+  let x=selected.left-rect.left+selected.width/2;
+  const raw=nav.style.getPropertyValue("--lens-drag-x").trim();
+  const dragging=nav.classList.contains("is-scrubbing")||raw!=="";
+  if(dragging){
+   const offset=Number.parseFloat(raw);
+   if(Number.isFinite(offset))x=first.left-rect.left+first.width/2+offset;
   }
-  if(e.type==="pointerdown"){
-   if(finger.id!==null || !["touch","pen"].includes(e.pointerType))return;
-   if(e.target.closest?.(".view-tabs")!==nav)return;
-   finger.id=e.pointerId;finger.active=true;
-   finger.startX=e.clientX;finger.startY=e.clientY;
-   finger.x=e.clientX-nav.getBoundingClientRect().left;return;
-  }
-  if(e.type==="pointermove"&&finger.id===e.pointerId){
-   const dx=e.clientX-finger.startX,dy=e.clientY-finger.startY;
-   if(Math.abs(dy)>11&&Math.abs(dy)>Math.abs(dx)){
-    finger.id=null;finger.active=false;return;
-   }
-   finger.x=e.clientX-nav.getBoundingClientRect().left;
-  }
+  const last=tabs[tabs.length-1].getBoundingClientRect();
+  x=Math.max(first.left-rect.left+first.width/2,
+   Math.min(last.left-rect.left+last.width/2,x));
+  return {x,width:first.width,dragging};
  }
- for(const event of ["pointerdown","pointermove","pointerup","pointercancel"])
-  document.addEventListener(event,pointer,true);
  function resize(rect){
   const pixelRatio=Math.min(devicePixelRatio||1,2);
   const cw=Math.max(1,Math.round(rect.width*pixelRatio));
@@ -224,8 +224,6 @@ function install(nav){
   if(!rect.width||!rect.height||rect.bottom<0||rect.top>innerHeight)return;
   resize(rect);
   const dark=document.documentElement.dataset.theme==="dark";
-  finger.opacity+=(Number(finger.active)-finger.opacity)*(finger.active?.42:.26);
-  if(finger.opacity<.001)finger.opacity=0;
   drawBackdrop(rect,dark);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
   gl.bindTexture(gl.TEXTURE_2D,source);
@@ -241,13 +239,15 @@ function install(nav){
   gl.uniform1i(gu.source,0);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,blurY);
   gl.uniform1i(gu.blur,1);
-  const width=Math.max(20,(rect.width-12)/5);
-  const xpos=Math.max(width/2,Math.min(rect.width-width/2,finger.x));
+  const target=targetLens(rect);
+  if(!Number.isFinite(lensX))lensX=target.x;
+  lensX+=(target.x-lensX)*(target.dragging?1:.34);
+  if(Math.abs(target.x-lensX)<.08)lensX=target.x;
   gl.uniform2f(gu.size,rect.width,rect.height);
   gl.uniform2f(gu.patch,patchW/dpr,patchH/dpr);
-  gl.uniform2f(gu.finger,xpos,rect.height/2);
-  gl.uniform1f(gu.alpha,finger.opacity);
-  gl.uniform1f(gu.width,width);
+  gl.uniform2f(gu.finger,lensX,rect.height/2);
+  gl.uniform1f(gu.alpha,1.0); // persistent selection, not touch-to-reveal
+  gl.uniform1f(gu.width,target.width);
   gl.uniform1f(gu.margin,MARGIN);
   gl.uniform1f(gu.ior,IOR);
   gl.uniform1f(gu.dark,dark?1:0);

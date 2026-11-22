@@ -28,6 +28,58 @@ async function checkBackupDialog(page, title) {
  assert.ok(overflow<=1,'The backup actions should fit the width of the dialog');
 }
 
+async function checkMobileGlassSave(browser, url) {
+ const phone=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+ try {
+  await phone.goto(url,{waitUntil:'domcontentloaded'});
+  const drawer=phone.locator('#menu-drawer-layer');
+  const settings=drawer.locator('.drawer-glass-settings');
+  const slider=id=>settings.locator(`[data-drawer-glass="${id}"]`);
+  const openSettings=async()=>{
+   await phone.locator('#menu-open').tap();
+   await phone.locator('#menu-drawer-layer.is-open').waitFor();
+   await settings.locator('summary').tap();
+  };
+  await openSettings();
+  await slider('opacity').evaluate(input=>{
+   const {x,y,width,height}=input.getBoundingClientRect();
+   const start=new Touch({identifier:1,target:input,clientX:x+width-12,clientY:y+height/2});
+   const end=new Touch({identifier:1,target:input,clientX:x+18,clientY:start.clientY});
+   input.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[start],changedTouches:[start]}));
+   input.dispatchEvent(new TouchEvent('touchmove',{bubbles:true,touches:[end],changedTouches:[end]}));
+   input.dispatchEvent(new TouchEvent('touchend',{bubbles:true,changedTouches:[end]}));
+  });
+  assert.equal(await drawer.evaluate(el=>el.classList.contains('is-open')),true,'Dragging a slider must leave the drawer open');
+
+  const edited={strength:'1.4',opacity:'65',rim:'55','blur-slider':'8',settle:'0.76'};
+  for(const [id,value] of Object.entries(edited))await slider(id).fill(value);
+  assert.equal(await phone.locator('#blur-out').textContent(),'8px');
+  await settings.locator('summary').tap();
+  await drawer.getByRole('button',{name:'关闭菜单'}).tap();
+  await phone.keyboard.press('Escape');
+  assert.equal(await settings.evaluate(el=>el.open),true,'Only saving should exit the glass editor');
+  await settings.getByRole('button',{name:'保存配置'}).tap();
+  await drawer.waitFor({state:'detached'});
+  await phone.reload({waitUntil:'domcontentloaded'});
+  assert.equal(await phone.locator('#blur-out').textContent(),'8px');
+  await openSettings();
+  for(const [id,value] of Object.entries(edited))assert.equal(await slider(id).inputValue(),value);
+
+  await settings.getByRole('button',{name:'恢复默认'}).tap();
+  assert.equal(await slider('blur-slider').inputValue(),'0');
+  await phone.reload({waitUntil:'domcontentloaded'});
+  assert.equal(await phone.locator('#blur-out').textContent(),'8px','Reload should keep the last saved profile');
+  await openSettings();
+  await settings.getByRole('button',{name:'恢复默认'}).tap();
+  await settings.getByRole('button',{name:'保存配置'}).tap();
+  await drawer.waitFor({state:'detached'});
+  await phone.reload({waitUntil:'domcontentloaded'});
+  assert.equal(await phone.locator('#blur-out').textContent(),'0px');
+ } finally {
+  await phone.close();
+ }
+}
+
 async function visualSnapshot(browser, url, layout) {
  const mobile=layout==='mobile';
  const baseline=url.includes('/design-baseline/');
@@ -99,6 +151,11 @@ async function visualSnapshot(browser, url, layout) {
    assert.equal(Number(await opacity.inputValue()),73);
    assert.equal(Number(await blur.inputValue()),baseline?23:0);
    drawer=await snapshot();
+   if(!baseline){
+    await panel.getByRole('button',{name:'保存配置'}).tap();
+    await panel.waitFor({state:'detached'});
+    await page.locator('#menu-open').click();
+   }
   }
   await page.locator(layout==='desktop'?'[data-wallpaper-open]':'#menu-drawer-layer [data-action="wallpaper"]').click();
   assert.equal(await page.locator('[data-wallpaper-choice]').count(),4);
@@ -144,6 +201,7 @@ async function smokePreviewBusiness(){
    assert.ok(baseline.match(wallpaper));
    assert.equal(html.match(wallpaper)?.[0],baseline.match(wallpaper)[0]);
   }
+  await checkMobileGlassSave(browser,base+'cloud.html');
   for(const [layout,entry] of [['desktop','index.html'],['mobile','cloud.html']]){
    const original=await visualSnapshot(browser,base+baselinePath,layout);
    if(layout==='mobile'){
@@ -415,7 +473,7 @@ async function smokePreviewBusiness(){
   await page.goto(base+'cloud.html',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.__suishouBusinessBridge?.getSnapshot().records.length===4);
   assert.equal(errors.length,0,"Browser page errors: "+errors.join("; "));
-  console.log("PASS: v29 desktop/mobile visuals, ledger and payment, card cover, V1/V2/V3 restore, mocked Google Drive backup, offline reload");
+  console.log("PASS: v29 desktop/mobile visuals, mobile glass save and touch drag, ledger and payment, card cover, V1/V2/V3 restore, mocked Google Drive backup, offline reload");
  }finally{
   await browser.close();
   await new Promise(ok=>server.close(ok));

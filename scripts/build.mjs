@@ -16,7 +16,7 @@ function applyPreviewPatch(original,revision="integrated"){
  "const inPeriod=r=>S.all||r.ym===String(S.year)+'-'+String(S.month).padStart(2,'0');","year-aware month");
  replaceOne("const money=(n)=>'¥'+Math.abs(n).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});",
  "const money=(n,c='CNY')=>new Intl.NumberFormat('zh-CN',{style:'currency',currency:c,minimumFractionDigits:['JPY','TWD','KRW'].includes(c)?0:2,maximumFractionDigits:['JPY','TWD','KRW'].includes(c)?0:2}).format(Math.abs(n));","per-currency amount");
- replaceOne("${money(r.value)}","${money(r.value,r.currency)}","record currency");
+ original=original.replaceAll("${money(r.value)}","${money(r.value,r.currency)}");
  replaceOne("function subs(){const yearly=S.subscriptions.reduce((a,x)=>a+x.price*(x.cycle==='每月'?12:1),0);",
  "function subs(){const yearly=S.subscriptions.filter(x=>x.currency===S.currency).reduce((a,x)=>a+x.price*(x.rawCycle==='month'?12:x.rawCycle==='quarter'?4:x.rawCycle==='year'?1:0),0);","subscription annual total");
  replaceOne("${money(x.price)}","${money(x.price,x.currency)}","subscription currency");

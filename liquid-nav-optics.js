@@ -112,82 +112,101 @@ function install(nav){
  canvas.setAttribute("aria-hidden","true");
  nav.prepend(canvas);
  let gl;
- try{gl=canvas.getContext("webgl2",{alpha:true,antialias:true,premultipliedAlpha:false,depth:false,stencil:false,powerPreference:"high-performance"});}catch(_){}
+ try{gl=canvas.getContext("webgl2",{
+  alpha:true,antialias:true,premultipliedAlpha:false,
+  depth:false,stencil:false,powerPreference:"high-performance"
+ });}catch(_){}
  if(!gl){canvas.remove();nav.dataset.optics="fallback";return;}
- function makeProgram(fragment){
-  const makeShader=(type,src)=>{
-   const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
-   if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));
+
+ function program(fragment){
+  function shader(type,code){
+   const s=gl.createShader(type);gl.shaderSource(s,code);gl.compileShader(s);
+   if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){
+    const error=gl.getShaderInfoLog(s);gl.deleteShader(s);throw Error(error);
+   }
    return s;
-  };
-  const v=makeShader(gl.VERTEX_SHADER,vertex),f=makeShader(gl.FRAGMENT_SHADER,fragment);
-  const p=gl.createProgram();gl.attachShader(p,v);gl.attachShader(p,f);gl.linkProgram(p);
-  gl.deleteShader(v);gl.deleteShader(f);
+  }
+  const vs=shader(gl.VERTEX_SHADER,vertex),fs=shader(gl.FRAGMENT_SHADER,fragment);
+  const p=gl.createProgram();gl.attachShader(p,vs);gl.attachShader(p,fs);gl.linkProgram(p);
+  gl.deleteShader(vs);gl.deleteShader(fs);
   if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));
   return p;
  }
  let blurProgram,glassProgram;
- try{blurProgram=makeProgram(blur);glassProgram=makeProgram(glass);}
- catch(e){console.warn("Glass refraction compilation failed",e);canvas.remove();nav.dataset.optics="fallback";return;}
- const ul=(program,name)=>gl.getUniformLocation(program,name);
- const bu={tex:ul(blurProgram,"t"),step:ul(blurProgram,"stepUV")};
- const gu={source:ul(glassProgram,"backgroundTex"),blur:ul(glassProgram,"blurredTex"),
-   size:ul(glassProgram,"size"),patch:ul(glassProgram,"patchSize"),
-   finger:ul(glassProgram,"finger"),alpha:ul(glassProgram,"fingerAlpha"),
-   width:ul(glassProgram,"tabWidth"),margin:ul(glassProgram,"marginPx"),
-   ior:ul(glassProgram,"ior"),dark:ul(glassProgram,"darkMode")};
+ try{blurProgram=program(blur);glassProgram=program(glass);}
+ catch(e){console.warn("Navigation optical shader error",e);canvas.remove();nav.dataset.optics="fallback";return;}
+ const u=(program,name)=>gl.getUniformLocation(program,name);
+ const bu={tex:u(blurProgram,"t"),step:u(blurProgram,"stepUV")};
+ const gu={
+  source:u(glassProgram,"backgroundTex"),blur:u(glassProgram,"blurredTex"),
+  size:u(glassProgram,"size"),patch:u(glassProgram,"patchSize"),
+  finger:u(glassProgram,"finger"),alpha:u(glassProgram,"fingerAlpha"),
+  width:u(glassProgram,"tabWidth"),margin:u(glassProgram,"marginPx"),
+  ior:u(glassProgram,"ior"),dark:u(glassProgram,"darkMode")
+ };
  function texture(){
-  const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+  const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-  return t;
+  return tex;
  }
- const source=texture(),blurX=texture(),blurY=texture();
+ const sourceTex=texture(),blurX=texture(),blurY=texture();
  function framebuffer(tex){
-  const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);return f;
+  const f=gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER,f);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);
+  return f;
  }
  const fbX=framebuffer(blurX),fbY=framebuffer(blurY);
  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
- const backdrop=document.createElement("canvas"),ctx=backdrop.getContext("2d",{alpha:false});
- let dpr=1,patchW=0,patchH=0,last=0,raf=0;
- // One continuous lens: selected tab is always visible. While dragging,
- // follow the gesture's CSS offset, then settle at the new selected tab.
- // React's aria-selected is authoritative for click/key/hash changes.
- let lensX=NaN;
- function targetLens(rect){
+ const backdrop=document.createElement("canvas");
+ const ctx=backdrop.getContext("2d",{alpha:false});
+ if(!ctx){canvas.remove();nav.dataset.optics="fallback";return;}
+
+ let dpr=1,patchW=0,patchH=0,raf=0;
+ let cached=null,geometryDirty=true,sceneDirty=true,lastScene=-Infinity;
+ let previousDark=null,lensX=NaN;
+ let lastTarget=-1,lastDrag=false,lastDraw=0;
+ const debug=new URLSearchParams(location.search).has("glassDebug");
+ const info={fps:0,sceneMs:0,sceneUpdates:0,drawMs:0,dragFrames:0};
+ window.__suishouGlassPerf=info;
+ let readout=null,sampleStart=0,sampleFrames=0;
+ if(debug){
+  readout=document.createElement("output");
+  readout.id="suishou-glass-perf";
+  readout.setAttribute("aria-label","玻璃导航渲染诊断");
+  readout.style.cssText="position:fixed;top:calc(env(safe-area-inset-top) + 5px);left:8px;z-index:9999;padding:5px 7px;background:#121826e6;color:white;border-radius:7px;font:11px/1.35 monospace;pointer-events:none;white-space:pre;max-width:95vw;";
+  document.body.append(readout);
+ }
+
+ function updateGeometry(){
+  const rect=nav.getBoundingClientRect();
   const tabs=[...nav.querySelectorAll('[role="tab"]')];
-  if(!tabs.length)return {x:rect.width/10,width:rect.width/5,dragging:false};
-  const current=tabs.find(el=>el.getAttribute("aria-selected")==="true")||tabs[0];
-  const selected=current.getBoundingClientRect();
-  const first=tabs[0].getBoundingClientRect();
-  let x=selected.left-rect.left+selected.width/2;
-  const raw=nav.style.getPropertyValue("--lens-drag-x").trim();
-  const dragging=nav.classList.contains("is-scrubbing")||raw!=="";
-  if(dragging){
-   const offset=Number.parseFloat(raw);
-   if(Number.isFinite(offset))x=first.left-rect.left+first.width/2+offset;
-  }
-  const last=tabs[tabs.length-1].getBoundingClientRect();
-  x=Math.max(first.left-rect.left+first.width/2,
-   Math.min(last.left-rect.left+last.width/2,x));
-  return {x,width:first.width,dragging};
+  const centers=tabs.map(tab=>{
+   const bounds=tab.getBoundingClientRect();
+   return bounds.left-rect.left+bounds.width/2;
+  });
+  cached={rect,centers,width:tabs[0]?.getBoundingClientRect().width||rect.width/5};
+  geometryDirty=false;
+  sceneDirty=true;
  }
  function resize(rect){
-  const pixelRatio=Math.min(devicePixelRatio||1,2);
-  const cw=Math.max(1,Math.round(rect.width*pixelRatio));
-  const ch=Math.max(1,Math.round(rect.height*pixelRatio));
-  const pw=Math.max(1,Math.round((rect.width+2*MARGIN)*pixelRatio));
-  const ph=Math.max(1,Math.round((rect.height+2*MARGIN)*pixelRatio));
+  // Retain the existing 2x optical resolution and full RGB/Fresnel effects.
+  const ratio=Math.min(devicePixelRatio||1,2);
+  const cw=Math.max(1,Math.round(rect.width*ratio));
+  const ch=Math.max(1,Math.round(rect.height*ratio));
+  const pw=Math.max(1,Math.round((rect.width+2*MARGIN)*ratio));
+  const ph=Math.max(1,Math.round((rect.height+2*MARGIN)*ratio));
   if(cw===canvas.width&&ch===canvas.height&&pw===patchW&&ph===patchH)return;
-  dpr=pixelRatio;canvas.width=cw;canvas.height=ch;
+  dpr=ratio;canvas.width=cw;canvas.height=ch;
   patchW=pw;patchH=ph;backdrop.width=pw;backdrop.height=ph;
-  for(const tex of [source,blurX,blurY]){
+  for(const tex of [sourceTex,blurX,blurY]){
    gl.bindTexture(gl.TEXTURE_2D,tex);
    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,pw,ph,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
   }
+  sceneDirty=true;
  }
  function drawBackdrop(rect,dark){
   const w=innerWidth,h=innerHeight,s=getComputedStyle(document.documentElement);
@@ -203,65 +222,145 @@ function install(nav){
   ellipse(ctx,"rgba(233,231,255,.52)",.49,.54,.28,.28,.90,w,h);
   ellipse(ctx,cool,.94,.23,.66,.62,.83,w,h);
   ellipse(ctx,light,.13,.08,.68,.54,.82,w,h);
+  // Reading a second WebGL canvas forces GPU -> CPU synchronization in Safari.
+  // Refresh that sample at a separate cadence, never every finger movement.
   const decorative=document.getElementById("liquid-studio-canvas");
-  if(decorative && decorative.width && decorative.height){
-   try{ctx.globalAlpha=dark?.55:.66;ctx.drawImage(decorative,0,0,w,h);}catch(_){}
+  if(decorative&&decorative.width&&decorative.height){
+   try{
+    ctx.globalAlpha=dark?.55:.66;
+    ctx.drawImage(decorative,0,0,w,h);
+   }catch(_){}
    ctx.globalAlpha=1;
   }
   ctx.setTransform(1,0,0,1,0,0);
  }
- function drawBlur(target,input,dx,dy){
-  gl.bindFramebuffer(gl.FRAMEBUFFER,target);gl.viewport(0,0,patchW,patchH);
-  gl.useProgram(blurProgram);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,input);
-  gl.uniform1i(bu.tex,0);gl.uniform2f(bu.step,dx,dy);gl.drawArrays(gl.TRIANGLES,0,3);
+ function drawBlur(fb,tex,dx,dy){
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+  gl.viewport(0,0,patchW,patchH);
+  gl.useProgram(blurProgram);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.uniform1i(bu.tex,0);gl.uniform2f(bu.step,dx,dy);
+  gl.drawArrays(gl.TRIANGLES,0,3);
  }
- function frame(t){
-  raf=requestAnimationFrame(frame);
-  if(document.visibilityState==="hidden"||t-last<30||!nav.isConnected)return;
-  last=t;
-  try{
-  const rect=nav.getBoundingClientRect();
-  if(!rect.width||!rect.height||rect.bottom<0||rect.top>innerHeight)return;
-  resize(rect);
-  const dark=document.documentElement.dataset.theme==="dark";
+ function refreshScene(rect,dark){
+  const start=performance.now();
   drawBackdrop(rect,dark);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
-  gl.bindTexture(gl.TEXTURE_2D,source);
+  gl.bindTexture(gl.TEXTURE_2D,sourceTex);
   gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,gl.RGBA,gl.UNSIGNED_BYTE,backdrop);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
-  drawBlur(fbX,source,1/patchW,0);
+  drawBlur(fbX,sourceTex,1/patchW,0);
   drawBlur(fbY,blurX,0,1/patchH);
+  sceneDirty=false;
+  info.sceneUpdates++;
+  info.sceneMs=performance.now()-start;
+ }
+ function getTarget(){
+  const centers=cached.centers;
+  if(!centers.length)return {x:cached.rect.width*.1,dragging:false};
+  const selected=Number.parseInt(nav.style.getPropertyValue("--selected-tab"),10);
+  const index=Number.isFinite(selected)?Math.max(0,Math.min(centers.length-1,selected)):
+   Math.max(0,[...nav.querySelectorAll('[role="tab"]')].findIndex(tab=>tab.getAttribute("aria-selected")==="true"));
+  // Gesture code writes a numeric offset directly. Avoid synchronous DOM layout
+  // and computed-style reads while dragging at 60 or 120 Hz.
+  const offset=nav.__suishouDragOffset;
+  const dragging=typeof offset==="number"&&Number.isFinite(offset);
+  return {
+   x:dragging?Math.max(centers[0],Math.min(centers[centers.length-1],centers[0]+offset)):centers[index],
+   dragging
+  };
+ }
+ function drawGlass(rect,dark,targetX){
+  const start=performance.now();
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);
   gl.viewport(0,0,canvas.width,canvas.height);
-  gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.clearColor(0,0,0,0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
   gl.useProgram(glassProgram);
-  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,source);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,sourceTex);
   gl.uniform1i(gu.source,0);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,blurY);
   gl.uniform1i(gu.blur,1);
-  const target=targetLens(rect);
-  if(!Number.isFinite(lensX))lensX=target.x;
-  lensX+=(target.x-lensX)*(target.dragging?1:.34);
-  if(Math.abs(target.x-lensX)<.08)lensX=target.x;
   gl.uniform2f(gu.size,rect.width,rect.height);
   gl.uniform2f(gu.patch,patchW/dpr,patchH/dpr);
-  gl.uniform2f(gu.finger,lensX,rect.height/2);
-  gl.uniform1f(gu.alpha,1.0); // persistent selection, not touch-to-reveal
-  gl.uniform1f(gu.width,target.width);
+  gl.uniform2f(gu.finger,targetX,rect.height/2);
+  gl.uniform1f(gu.alpha,1.0);
+  gl.uniform1f(gu.width,cached.width);
   gl.uniform1f(gu.margin,MARGIN);
   gl.uniform1f(gu.ior,IOR);
   gl.uniform1f(gu.dark,dark?1:0);
   gl.drawArrays(gl.TRIANGLES,0,3);
-  }catch(error){
-   console.warn("Navigation refraction stopped; restoring single-surface fallback",error);
-   cancelAnimationFrame(raf);nav.dataset.optics="fallback";canvas.remove();
+  info.drawMs=performance.now()-start;
+ }
+ function updateStats(t,dragging){
+  if(!debug || !readout)return;
+  if(!sampleStart)sampleStart=t;
+  if(dragging)sampleFrames++;
+  if(t-sampleStart>=600){
+   info.fps=Math.round(sampleFrames*1000/(t-sampleStart));
+   readout.textContent="Glass drag: "+info.fps+" FPS\nScene: "+info.sceneMs.toFixed(1)+" ms\nComposite: "+info.drawMs.toFixed(1)+" ms";
+   sampleStart=t;sampleFrames=0;
   }
  }
- canvas.addEventListener("webglcontextlost",e=>{
-  e.preventDefault();cancelAnimationFrame(raf);nav.dataset.optics="fallback";canvas.remove();
+ function tick(t){
+  raf=requestAnimationFrame(tick);
+  if(!nav.isConnected){dispose();return;}
+  if(document.visibilityState==="hidden"||nav.dataset.optics!=="webgl")return;
+  try{
+   if(geometryDirty||!cached)updateGeometry();
+   const rect=cached.rect;
+   if(!rect.width||!rect.height||rect.bottom<0||rect.top>innerHeight)return;
+   resize(rect);
+   const dark=document.documentElement.dataset.theme==="dark";
+   if(dark!==previousDark){previousDark=dark;sceneDirty=true;}
+   const target=getTarget();
+   if(!Number.isFinite(lensX))lensX=target.x;
+   // During touch, move the lens exactly to the finger-derived position:
+   // no spring or interpolation latency. Animate only after release/click.
+   if(target.dragging)lensX=target.x;
+   else{
+    lensX+=(target.x-lensX)*.54;
+    if(Math.abs(target.x-lensX)<.12)lensX=target.x;
+   }
+   const changing=Math.abs(lastTarget-lensX)>.08;
+   // Background capture + 2 blur passes run ~10-12Hz for animated wallpaper.
+   // The refractive optical lens composites at display RAF speed, uncapped.
+   // Transparency, DPR, dispersion, IOR and shader quality are unchanged.
+   const decorated=!!document.getElementById("liquid-studio-canvas");
+   const sceneInterval=target.dragging?115:95;
+   const needScene=sceneDirty||(decorated && t-lastScene>=sceneInterval);
+   if(needScene){refreshScene(rect,dark);lastScene=t;}
+   const redraw=needScene||changing||lastDrag!==target.dragging;
+   if(redraw){drawGlass(rect,dark,lensX);lastTarget=lensX;lastDraw=t;if(target.dragging)info.dragFrames++;}
+   lastDrag=target.dragging;
+   updateStats(t,target.dragging&&redraw);
+  }catch(error){
+   console.warn("Navigation optics stopped; retaining accessible single-lens fallback",error);
+   dispose();nav.dataset.optics="fallback";canvas.remove();
+  }
+ }
+ const onLayout=()=>{geometryDirty=true;sceneDirty=true;};
+ const onTheme=()=>{sceneDirty=true;};
+ const resizeObserver=typeof ResizeObserver==="function"?new ResizeObserver(onLayout):null;
+ resizeObserver?.observe(nav);
+ const themeObserver=new MutationObserver(onTheme);
+ themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+ window.addEventListener("resize",onLayout,{passive:true});
+ window.addEventListener("scroll",onLayout,{passive:true});
+ window.addEventListener("orientationchange",onLayout,{passive:true});
+ function dispose(){
+  cancelAnimationFrame(raf);
+  resizeObserver?.disconnect();themeObserver.disconnect();
+  window.removeEventListener("resize",onLayout);
+  window.removeEventListener("scroll",onLayout);
+  window.removeEventListener("orientationchange",onLayout);
+  readout?.remove();
+ }
+ canvas.addEventListener("webglcontextlost",event=>{
+  event.preventDefault();dispose();canvas.remove();nav.dataset.optics="fallback";
  },{once:true});
  nav.dataset.optics="webgl";
- raf=requestAnimationFrame(frame);
+ raf=requestAnimationFrame(tick);
 }
 function init(){
  const nav=document.querySelector(".view-tabs");

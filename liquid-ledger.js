@@ -45,7 +45,7 @@
   }
   document.addEventListener("pointerdown",e=>{
     const el=e.target.closest?.(".glass-button:not(:disabled)");
-    if(!el || e.button!==0)return;
+    if(!el || e.button!==0 || el.closest(".view-tabs"))return;
     pressed.set(e.pointerId,el);
     press(el,true,e);
   },{passive:true,capture:true});
@@ -76,36 +76,40 @@
     return [...nav.querySelectorAll('[role="tab"]')];
   }
   function moveTabLens(gesture,clientX){
-    const nav=gesture.nav,tabs=tabNodes(nav);
-    if(!tabs.length)return 0;
-    const rect=nav.getBoundingClientRect();
-    const first=tabs[0].getBoundingClientRect();
-    const last=tabs[tabs.length-1].getBoundingClientRect();
-    const firstCenter=first.left-rect.left+first.width/2;
-    const lastCenter=last.left-rect.left+last.width/2;
-    // Preserve the original grip point: the existing lens moves by the
-    // exact finger delta instead of jumping its centre underneath the finger.
-    const center=Math.max(firstCenter,Math.min(lastCenter,
+    const centers=gesture.centers;
+    if(!centers.length)return 0;
+    // All tab coordinates are captured once at touch start.
+    const center=Math.max(centers[0],Math.min(centers[centers.length-1],
       gesture.startCenter+clientX-gesture.startX));
-    nav.style.setProperty("--lens-drag-x",(center-firstCenter).toFixed(2)+"px");
+    const offset=center-centers[0];
+    // Direct numeric handoff to WebGL: no forced layout, style or CSS read.
+    gesture.nav.__suishouDragOffset=offset;
+    // Maintain the CSS lens for the WebGL-unavailable fallback only.
+    if(gesture.nav.dataset.optics!=="webgl")
+      gesture.nav.style.setProperty("--lens-drag-x",offset.toFixed(2)+"px");
     let nearest=0,best=Infinity;
-    for(let i=0;i<tabs.length;i++){
-      const box=tabs[i].getBoundingClientRect();
-      const distance=Math.abs(box.left-rect.left+box.width/2-center);
+    for(let i=0;i<centers.length;i++){
+      const distance=Math.abs(centers[i]-center);
       if(distance<best){best=distance;nearest=i;}
     }
     return nearest;
   }
   function cleanupTabGesture(gesture){
-    gesture.nav.classList.remove("is-scrubbing");
-    // Preserve the last finger position until the lens has faded out.
-    setTimeout(()=>{
-      if(!gesture.nav.classList.contains("is-scrubbing"))
-        gesture.nav.style.removeProperty("--lens-drag-x");
-    },190);
-    if(gesture.nav.hasPointerCapture?.(gesture.pointerId)){
-      try{gesture.nav.releasePointerCapture(gesture.pointerId)}catch(_){}
+    const nav=gesture.nav;
+    nav.classList.remove("is-scrubbing");
+    if(nav.hasPointerCapture?.(gesture.pointerId)){
+      try{nav.releasePointerCapture(gesture.pointerId)}catch(_){}
     }
+    // Wait one frame for React's aria-selected / --selected-tab update,
+    // then let the persistent lens settle at the newly selected target.
+    const token=(nav.__suishouReleaseToken||0)+1;
+    nav.__suishouReleaseToken=token;
+    requestAnimationFrame(()=>{
+      if(nav.__suishouReleaseToken===token){
+        nav.__suishouDragOffset=undefined;
+        nav.style.removeProperty("--lens-drag-x");
+      }
+    });
   }
   document.addEventListener("pointerdown",e=>{
     if((e.pointerType!=="touch"&&e.pointerType!=="pen")||e.button!==0)return;
@@ -115,11 +119,17 @@
     if(!nav)return;
     const tabs=tabNodes(nav);
     const selected=tabs.find(item=>item.getAttribute("aria-selected")==="true")||tab;
-    const navRect=nav.getBoundingClientRect(),selectedRect=selected.getBoundingClientRect();
+    const navRect=nav.getBoundingClientRect();
+    const centers=tabs.map(item=>{
+      const rect=item.getBoundingClientRect();
+      return rect.left-navRect.left+rect.width/2;
+    });
+    // A new touch must not inherit the prior gesture's pending release.
+    nav.__suishouReleaseToken=(nav.__suishouReleaseToken||0)+1;
     tabGestures.set(e.pointerId,{
       pointerId:e.pointerId,nav,startX:e.clientX,startY:e.clientY,
-      startCenter:selectedRect.left-navRect.left+selectedRect.width/2,
-      dragging:false,index:tabs.indexOf(tab)
+      startCenter:centers[tabs.indexOf(selected)],
+      centers,dragging:false,index:tabs.indexOf(tab)
     });
   },{capture:true,passive:true});
   document.addEventListener("pointermove",e=>{
@@ -146,10 +156,10 @@
     if(!gesture.dragging)return; // A tap keeps the regular React click.
     gesture.index=moveTabLens(gesture,e.clientX);
     const tabs=tabNodes(gesture.nav),target=tabs[gesture.index];
-    cleanupTabGesture(gesture);
     // Pointer capture may synthesize a second trusted click after pointerup.
     swipeClickGuard=gesture.nav;
     if(target)target.click();
+    cleanupTabGesture(gesture);
     requestAnimationFrame(()=>{if(swipeClickGuard===gesture.nav)swipeClickGuard=null;});
   },{capture:true,passive:true});
   document.addEventListener("pointercancel",e=>{

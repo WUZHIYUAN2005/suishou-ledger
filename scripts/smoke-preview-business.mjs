@@ -29,11 +29,39 @@ async function checkBackupDialog(page, title) {
 }
 
 async function visualSnapshot(browser, url, layout) {
- const page=await browser.newPage({viewport:layout==='desktop'?{width:1440,height:900}:{width:390,height:844}});
+ const mobile=layout==='mobile';
+ const baseline=url.includes('/design-baseline/');
+ const page=await browser.newPage({
+  viewport:mobile?{width:390,height:844}:{width:1440,height:900},
+  hasTouch:mobile,isMobile:mobile,
+ });
  try {
+  if(mobile&&!baseline)await page.addInitScript(()=>{
+   const samples=window.__mobileGlassFrames=[];
+   function sample() {
+    const root=document.documentElement;
+    if(root?.dataset.layout==='mobile'){
+     const panel=document.querySelector('.kpi');
+     samples.push({
+      blur:getComputedStyle(root).getPropertyValue('--blur').trim(),
+      panel:panel?getComputedStyle(panel).backdropFilter:null,
+      wallpaperReady:window.__suishouWallpaperImage?.naturalWidth>0,
+     });
+    }
+    if(samples.length<12||!samples.at(-1)?.wallpaperReady)requestAnimationFrame(sample);
+   }
+   requestAnimationFrame(sample);
+  });
   await page.goto(url,{waitUntil:'domcontentloaded'});
   await page.waitForFunction(expected=>document.documentElement.dataset.layout===expected,layout);
-  if(!url.includes('/design-baseline/'))await page.waitForFunction(()=>!!window.__suishouBusinessBridge);
+  if(!baseline)await page.waitForFunction(()=>!!window.__suishouBusinessBridge);
+  if(mobile&&!baseline){
+   await page.waitForFunction(()=>window.__mobileGlassFrames.length>=12&&window.__mobileGlassFrames.at(-1).wallpaperReady);
+   const samples=await page.evaluate(()=>window.__mobileGlassFrames);
+   assert.ok(samples.every(frame=>frame.blur==='0px'),'The mobile glass must start sharp and stay sharp');
+   assert.ok(samples.some(frame=>frame.panel?.startsWith('blur(0px)')));
+   assert.ok(samples.every(frame=>!frame.panel||frame.panel.startsWith('blur(0px)')));
+  }
   const snapshot=() => page.evaluate(async()=>{
    await document.fonts.ready;
    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -60,11 +88,16 @@ async function visualSnapshot(browser, url, layout) {
    const panel=page.locator('.menu-drawer');
    await panel.locator('summary').click();
    const opacity=panel.locator('[data-drawer-glass="opacity"]');
+   const blur=panel.locator('[data-drawer-glass="blur-slider"]');
    assert.equal(Number(await opacity.inputValue()),73);
+   assert.equal(Number(await blur.inputValue()),baseline?23:0);
    await opacity.fill('65');
    assert.equal(Number(await page.locator('#opacity').inputValue()),65);
+   await blur.fill('8');
+   assert.equal(await page.locator('.kpi').first().evaluate(el=>getComputedStyle(el).backdropFilter),'blur(8px) saturate(1.45)');
    await panel.locator('[data-drawer-glass-reset]').click();
    assert.equal(Number(await opacity.inputValue()),73);
+   assert.equal(Number(await blur.inputValue()),baseline?23:0);
    drawer=await snapshot();
   }
   await page.locator(layout==='desktop'?'[data-wallpaper-open]':'#menu-drawer-layer [data-action="wallpaper"]').click();
@@ -113,6 +146,13 @@ async function smokePreviewBusiness(){
   }
   for(const [layout,entry] of [['desktop','index.html'],['mobile','cloud.html']]){
    const original=await visualSnapshot(browser,base+baselinePath,layout);
+   if(layout==='mobile'){
+    for(const snapshot of Object.values(original).filter(Boolean)){
+     for(const el of Object.values(snapshot).filter(Boolean)){
+      el.styles[5]=el.styles[5].replace('blur(23px)','blur(0px)').replace('blur(25px)','blur(2px)');
+     }
+    }
+   }
    assert.deepEqual(await visualSnapshot(browser,base+entry,layout),original,`${layout} visual mismatch`);
   }
 
@@ -137,16 +177,37 @@ async function smokePreviewBusiness(){
   await page.locator("#real-entry input[name=amount]").fill("0");
   await page.locator("#real-entry button[type=submit]").click();
   await page.waitForFunction(()=>window.__suishouBusinessBridge.getSnapshot().records.length===1);
-  assert.equal(await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot().records[0].amountMinor),0);
+  const legacyRecord=await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot().records[0]);
+  assert.equal(legacyRecord.amountMinor,0);
+  assert.equal(legacyRecord.paymentMethod,undefined);
   await page.reload({waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>window.__suishouBusinessBridge?.getSnapshot().records.length===1);
   await page.locator('.tab[data-tab="bills"]').click();
   await page.waitForSelector(".bill-row");
   assert.match(await page.locator(".bill-row").innerText(),/0元测试事件/);
   await page.locator(".bill-row").click();
+  const entry=page.locator('#real-entry');
+  const entryPayment=entry.locator('[name=paymentMethod]');
+  assert.deepEqual(await entryPayment.locator('option').allTextContents(),['未指定','借记卡','信用卡','微信','支付宝']);
+  assert.equal(await entryPayment.inputValue(),'');
+  await entry.locator('[name=currency]').selectOption('INR');
+  await entryPayment.selectOption('debit');
   await page.locator('#real-entry input[name=amount]').fill("5.42");
   await page.locator("#real-entry button[type=submit]").click();
   await page.waitForFunction(()=>window.__suishouBusinessBridge.getSnapshot().records[0].amountMinor===542);
+  const inrExpense=await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot().records[0]);
+  assert.equal(inrExpense.currency,'INR');
+  assert.equal(inrExpense.paymentMethod,'debit');
+  await page.locator('.tab[data-tab="stats"]').click();
+  const statsCurrency=page.getByRole('combobox',{name:'统计币种'});
+  await statsCurrency.selectOption('INR');
+  assert.match(await page.locator('.donut').innerText(),/₹5\.42/);
+  await page.locator('.tab[data-tab="bills"]').click();
+  await page.locator('.bill-row').click();
+  assert.equal(await entryPayment.inputValue(),'debit');
+  await entry.getByRole('button',{name:'取消'}).click();
+  await page.locator('.tab[data-tab="stats"]').click();
+  await statsCurrency.selectOption('CNY');
   await page.locator('.tab[data-tab="subs"]').click();
   await page.locator('[data-action="add-sub"]').first().click();
   const member = page.locator('#real-member');
@@ -170,6 +231,7 @@ async function smokePreviewBusiness(){
   await member.getByRole('button',{name:'保存并登记付款'}).click();
   const beforePayment = await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot().memberships[0]);
   await memberPayment.locator('[name=category]').selectOption('数码电子');
+  await memberPayment.locator('[name=paymentMethod]').selectOption('credit');
   await paymentEntry.click();
   await memberPayment.waitFor({state:'detached'});
   const afterPayment = await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot());
@@ -177,6 +239,7 @@ async function smokePreviewBusiness(){
   assert.equal(afterPayment.records[0].membershipId,beforePayment.id);
   assert.equal(afterPayment.records[0].category,'数码电子');
   assert.equal(afterPayment.records[0].amountMinor,1200);
+  assert.equal(afterPayment.records[0].paymentMethod,'credit');
   await page.locator(".sub-row").first().click();
   await member.getByRole('button',{name:'保存并登记付款'}).click();
   page.once('dialog',dialog=>dialog.dismiss());
@@ -187,9 +250,10 @@ async function smokePreviewBusiness(){
 
   await page.locator('[data-action="add-sub"]').first().click();
   await member.locator('[name=name]').fill('外币订阅');
-  await member.locator('[name=currency]').selectOption('JPY');
-  await member.locator('[name=amount]').fill('900');
+  await member.locator('[name=currency]').selectOption('INR');
+  await member.locator('[name=amount]').fill('900.50');
   await member.getByRole('button',{name:'保存并登记付款'}).click();
+  await memberPayment.locator('[name=paymentMethod]').selectOption('wechat');
   let quoteRequests = 0;
   await page.route('https://api.frankfurter.dev/**',async route=>{
    quoteRequests++;
@@ -206,9 +270,10 @@ async function smokePreviewBusiness(){
   const foreign = await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot().records[0]);
   assert.equal(foreign.amountMinor,4235);
   assert.equal(foreign.currency,'CNY');
-  assert.equal(foreign.fx.originalCurrency,'JPY');
-  assert.equal(foreign.fx.originalAmountMinor,900);
+  assert.equal(foreign.fx.originalCurrency,'INR');
+  assert.equal(foreign.fx.originalAmountMinor,90050);
   assert.equal(foreign.fx.source,'实际扣款');
+  assert.equal(foreign.paymentMethod,'wechat');
   await page.reload({waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.__suishouBusinessBridge?.getSnapshot().records.length===3);
 
@@ -222,6 +287,23 @@ async function smokePreviewBusiness(){
   await page.locator('#real-topup input[name=amount]').fill("10");
   await page.locator('#real-topup button[type=submit]').click();
   await page.waitForFunction(()=>window.__suishouBusinessBridge.getSnapshot().cards[0].balanceMinor===11000);
+  const cardId=await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot().cards[0].id);
+  await page.locator('#new-entry').click();
+  await entry.locator('[name=name]').fill('验储值卡扣款');
+  await entry.locator('[name=amount]').fill('5');
+  await entryPayment.selectOption(`card:${cardId}`);
+  await entry.getByRole('button',{name:'保存账单'}).click();
+  assert.equal(await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot().cards[0].balanceMinor),10500);
+  await page.locator('.tab[data-tab="bills"]').click();
+  await page.locator('.bill-row').filter({hasText:'验储值卡扣款'}).click();
+  assert.equal(await entryPayment.inputValue(),`card:${cardId}`);
+  await entryPayment.selectOption('debit');
+  await entry.getByRole('button',{name:'保存修改'}).click();
+  assert.equal(await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot().cards[0].balanceMinor),11000);
+  await page.locator('.bill-row').filter({hasText:'验储值卡扣款'}).click();
+  page.once('dialog',dialog=>dialog.accept());
+  await entry.getByRole('button',{name:'删除账单'}).click();
+  await page.locator('.tab[data-tab="cards"]').click();
   const cover=await readFile('icon-180.png');
   const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.locator('[data-action=cover]').click()]);
   await chooser.setFiles({name:'cover.png',mimeType:'image/png',buffer:cover});
@@ -245,8 +327,8 @@ async function smokePreviewBusiness(){
   const exportPath=await download.path();
   const backup=JSON.parse(await readFile(exportPath,"utf8"));
   assert.equal(backup.version,2);
-  assert.equal(backup.records.find(record=>record.name==='0元测试事件').amountMinor,542);
-  assert.equal(backup.records.find(record=>record.id===foreign.id).fx.originalCurrency,'JPY');
+  assert.deepEqual(backup.records.find(record=>record.id===inrExpense.id),inrExpense);
+  assert.deepEqual(backup.records.find(record=>record.id===foreign.id),foreign);
   assert.equal(backup.cards.length,1);assert.equal(backup.memberships.length,2);
 
   const [migration]=await Promise.all([page.waitForEvent('download'),page.locator('[data-real="export-migration"]').click()]);
@@ -263,7 +345,7 @@ async function smokePreviewBusiness(){
    await page.locator('#real-import-file').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(data))});
    await page.locator('#real-import-file').waitFor({state:'detached'});
   };
-  const oldRecord={...backup.records[0],id:'v1:old-record'};
+  const oldRecord={...legacyRecord,id:'v1:old-record'};
   await restore({app:'随手账本',version:1,records:[oldRecord]});
   const restoredV1=await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot());
   assert.equal(restoredV1.records[0].id,oldRecord.id);
@@ -315,16 +397,18 @@ async function smokePreviewBusiness(){
   await member.getByRole('button',{name:'保存并登记付款'}).click();
   assert.ok(await memberPayment.evaluate(form=>form.scrollWidth<=form.clientWidth+1));
   const paidAt=await memberPayment.locator('[name=when]').inputValue();
+  await memberPayment.locator('[name=paymentMethod]').selectOption('alipay');
   await page.unroute('https://api.frankfurter.dev/**');
-  await page.route('https://api.frankfurter.dev/**',route=>route.fulfill({
-   json:{base:'JPY',quote:'CNY',rate:0.048,date:paidAt.slice(0,10)},
+  await page.route('https://api.frankfurter.dev/v2/rate/INR/CNY',route=>route.fulfill({
+   json:{base:'INR',quote:'CNY',rate:0.08,date:paidAt.slice(0,10)},
   }));
   page.once('dialog',dialog=>dialog.accept());
   await paymentEntry.click();
   await memberPayment.waitFor({state:'detached'});
   const referencePayment=await page.evaluate(()=>window.__suishouBusinessBridge.getSnapshot().records[0]);
-  assert.equal(referencePayment.amountMinor,4320);
+  assert.equal(referencePayment.amountMinor,7204);
   assert.equal(referencePayment.fx.source,'Frankfurter');
+  assert.equal(referencePayment.paymentMethod,'alipay');
 
   await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
   await page.context().setOffline(true);

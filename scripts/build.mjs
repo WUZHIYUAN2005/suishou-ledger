@@ -33,6 +33,33 @@ function applyPreviewPatch(original,revision="integrated"){
  replaceOne("htmlSafe(S.cards[S.card].name)","htmlSafe(S.cards[S.card]?.name||'暂无储值卡')","zero-card safe name");
  replaceOne("money(S.cards[S.card].balance)} · CNY","money(S.cards[S.card]?.balance||0,S.cards[S.card]?.currency||'CNY')} · ${S.cards[S.card]?.currency||'CNY'}","zero-card safe balance and currency");
  replaceOne('aria-label="云同步模拟"','aria-label="打开云端备份"',"real cloud sync label");
+ // Start the CSS and optical renderer with the same sharp mobile material.
+ replaceOne("root.dataset.layout=resolve();root.dataset.layoutChoice=choice;",
+ `const layout=resolve();
+   if(root.dataset.layout!==layout){
+     root.style.setProperty('--blur',layout==='mobile'?'0px':'23px');
+   }
+   root.dataset.layout=layout;root.dataset.layoutChoice=choice;`,"initial blur before the first paint");
+ replaceOne("rim:.72,blur:23,settle:.68", "rim:.72,blur:parseFloat(document.documentElement.style.getPropertyValue('--blur')),settle:.68", "read initial glass blur");
+ replaceOne("const controls=[[", `const blurSlider=by('blur-slider');
+blurSlider.value=String(S.blur);
+by('blur-out').textContent=S.blur+'px';
+const controls=[[`, "sync initial blur control");
+ replaceOne("'blur-slider':23,settle:.68", "'blur-slider':document.documentElement.dataset.layout==='mobile'?0:23,settle:.68", "reset blur for the current layout");
+ replaceOne("function createOptics(){", `const useBlurTexture=()=>document.documentElement.dataset.layout!=='mobile'||S.blur>0;
+function createOptics(){`, "select sharp or blurred optics");
+ replaceOne("blurred(fx,scene,1/pw,0);blurred(fy,tx,0,1/ph);dirty=false", "if(useBlurTexture()){blurred(fx,scene,1/pw,0);blurred(fy,tx,0,1/ph)}dirty=false", "skip unused mobile Gaussian passes");
+ replaceOne("gl.bindTexture(gl.TEXTURE_2D,ty);gl.uniform1i(gu.blur,1);", "gl.bindTexture(gl.TEXTURE_2D,useBlurTexture()?ty:scene);gl.uniform1i(gu.blur,1);", "keep the mobile navigation image sharp");
+ replaceOne("// Desktop-only optical cursor light.", `let glassLayout=document.documentElement.dataset.layout;
+window.addEventListener('suishou-layout-change',()=>{
+ const root=document.documentElement;
+ if(glassLayout===root.dataset.layout)return;
+ glassLayout=root.dataset.layout;
+ blurSlider.value=root.style.getPropertyValue('--blur').replace('px','');
+ blurSlider.dispatchEvent(new Event('input'));
+});
+
+// Desktop-only optical cursor light.`,"match the control and renderer to layout changes");
  replaceOne("render();\n})();\n</script>",
  "S.records=[];S.subscriptions=[];S.cards=[];window.__suishouPreview={state:S,render,go,modal,closeModal,toast};\nrender();\n})();\n</script>","expose preview, clear demo data");
  replaceOne("</head>",

@@ -1,4 +1,4 @@
-import {CATEGORY,CURRENCIES,BACKUP_FREQUENCIES,getSnapshot,subscribe,localDatetime,saveCurrency,getCategoryInfo,money,loadGoogleAuthorization,getGoogleTokenFromClick,syncCloud,disconnectCloud,setBackupFrequency,listBackupFolders,createBackupFolder,setBackupFolder,commit,validateRecords,validateCards,validateMemberships} from "./ledger.js";
+import {CATEGORY,CURRENCIES,PAYMENT_METHODS,BACKUP_FREQUENCIES,getSnapshot,subscribe,localDatetime,saveCurrency,getCategoryInfo,money,loadGoogleAuthorization,getGoogleTokenFromClick,syncCloud,disconnectCloud,setBackupFrequency,listBackupFolders,createBackupFolder,setBackupFolder,commit,validateRecords,validateCards,validateMemberships} from "./ledger.js";
 import {amountInput,saveEntry,deleteEntry,saveCard,deleteCard,topupCard,CYCLE_NAMES,saveMember,recordMemberPayment,deleteMember,downloadBackup,downloadMigrationBackup,importBackup,clearRecords} from "./actions.js";
 import {readCovers,putCover,removeCover,readCoverImage} from "./covers.js";
 
@@ -20,6 +20,7 @@ function bootPreviewBridge(){
   const submit=(label)=>`<button class="glass" type="submit">${label}</button>`;
   const opts=(items,value)=>items.map(([id,label])=>`<option value="${safe(id)}" ${id===value?"selected":""}>${safe(label)}</option>`).join("");
   const select=(name,items,value,attrs="")=>`<select name="${name}" ${attrs}>${opts(items,value)}</select>`;
+  const paymentMethods = [["", "未指定"], ...Object.entries(PAYMENT_METHODS)];
   const actions=(body,wrap=false)=>`<div class="form-actions"${wrap?' style="flex-wrap:wrap"':''}>${btn("取消","close")}${body}</div>`;
   const modal=(title,html)=>view.modal(title,html);
   const formatDate=(date)=>{const x=String(date||"");return /^\d{4}-\d{2}-\d{2}$/.test(x)?`${x.slice(5,7)}月${x.slice(8,10)}日`:x;};
@@ -69,9 +70,18 @@ function bootPreviewBridge(){
     const status=$("real-cloud-status");
     if(status)status.textContent=snap.cloudMessage;
   }
+  function entryPaymentMethods(code) {
+    return [
+      ...paymentMethods,
+      ...getSnapshot().cards.filter(card => card.currency === code).map(card => [
+        `card:${card.id}`, `储值卡 · ${card.name} · ${fmt(card.balanceMinor, card.currency)}`,
+      ]),
+    ];
+  }
   function openEntry(id=null){
     const entry=getSnapshot().records.find(r=>r.id===id);
     const type=entry?.type||"expense",code=entry?.currency||S.currency;
+    const payment = entry?.paymentCardId ? `card:${entry.paymentCardId}` : entry?.paymentMethod || "";
     modal(entry?"编辑账单":"记一笔",`<form id="real-entry" data-id="${safe(id||"")}">
       ${field("收支类型",select("type",[["expense","支出"],["income","收入"]],type,"id='real-entry-type'"))}
       ${field("事件 / 备注",input("name",entry?.name||"","text","maxlength='80' required"))}
@@ -79,7 +89,7 @@ function bootPreviewBridge(){
       ${field("币种",select("currency",CURRENCIES.map(c=>[c.code,`${c.name} · ${c.code}`]),code,"id='real-entry-currency'"))}
       ${field("分类",select("category",CATEGORY[type].map(c=>[c.name,c.name]),entry?.category||CATEGORY[type][0].name,"id='real-entry-category'"))}
       ${field("日期时间",input("occurredAt",entry?.occurredAt||now(),"datetime-local","required"))}
-      ${field("储值卡付款（仅支出）",select("paymentCardId",[["","不使用储值卡"],...getSnapshot().cards.filter(c=>c.currency===code).map(c=>[c.id,c.name+" · "+fmt(c.balanceMinor,c.currency)])],entry?.paymentCardId||"","id='real-entry-card'"))}
+      ${field("付款方式（仅支出）",select("paymentMethod",entryPaymentMethods(code),payment,type === "income" ? "disabled" : ""))}
       ${actions(submit(entry?"保存修改":"保存账单")+(entry?btn("删除账单","delete-entry:"+id):""))}
     </form>`);
   }
@@ -88,11 +98,9 @@ function bootPreviewBridge(){
     const type=form.elements.type.value,code=form.elements.currency.value;
     const oldCategory=form.elements.category.value;
     form.elements.category.innerHTML=opts(CATEGORY[type].map(c=>[c.name,c.name]),oldCategory);
-    const record=getSnapshot().records.find(r=>r.id===form.dataset.id);
-    const previous=form.elements.paymentCardId.value;
-    const valid=getSnapshot().cards.filter(c=>c.currency===code).map(c=>[c.id,c.name+" · "+fmt(c.balanceMinor,c.currency)]);
-    form.elements.paymentCardId.innerHTML=opts([["","不使用储值卡"],...valid],previous||record?.paymentCardId||"");
-    form.elements.paymentCardId.disabled=type==="income";
+    const payment = form.elements.paymentMethod;
+    payment.innerHTML = opts(entryPaymentMethods(code), payment.value);
+    payment.disabled = type === "income";
   }
   function openMember(id=null){
     const m=getSnapshot().memberships.find(x=>x.id===id);
@@ -121,7 +129,8 @@ function bootPreviewBridge(){
       <p><b>${safe(member.name)}</b> · ${originalAmount}</p>
       ${field("实际付款时间", input("when", now(), "datetime-local", "required"))}
       ${field("付款支出分类", select("category", CATEGORY.expense.map(c => [c.name, c.name]), "娱乐休闲"))}
-      ${field("银行实际扣款人民币金额（选填）", input("actualCny", "", "number", "min='0.01' step='0.01'"))}
+      ${field("付款方式", select("paymentMethod", paymentMethods, ""))}
+      ${field("实际扣款人民币金额（选填）", input("actualCny", "", "number", "min='0.01' step='0.01'"))}
       <p class="subtext">${isForeign ? "留空时按最新参考汇率折算，确认后记入一笔人民币支出。" : "留空时按订阅价格记入一笔人民币支出。"}</p>
       <p class="subtext" role="alert" hidden></p>
       ${actions(submit("确认记入付款"))}
@@ -316,7 +325,15 @@ function bootPreviewBridge(){
     e.preventDefault();e.stopImmediatePropagation();
     void (async()=>{
       const d=values(form),id=form.dataset.id||null;
-      if(form.id==="real-entry")saveEntry(id,{type:d.type,name:d.name,amount:d.amount,currency:d.currency,category:d.category,occurredAt:d.occurredAt,paymentCardId:d.type==="expense"?d.paymentCardId:""});
+      if (form.id === "real-entry") {
+        const payment = d.paymentMethod || "";
+        const paidByStoredValue = payment.startsWith("card:");
+        saveEntry(id, {
+          ...d,
+          paymentMethod: paidByStoredValue ? "" : payment,
+          paymentCardId: paidByStoredValue ? payment.slice("card:".length) : "",
+        });
+      }
       if (form.id === "real-member") {
         const memberId = await saveMember(id, {
           ...d,

@@ -216,15 +216,6 @@ async function makeMemberPayment(member, data) {
     )
   )
     return null;
-  if (
-    state.records.some(
-      (record) =>
-        record.membershipId === member.id &&
-        Math.abs(new Date(record.occurredAt) - new Date(when)) < 7 * 86400000,
-    ) &&
-    !confirm("近 7 天已为此会员记过付款记录。确定再次记入一笔吗？")
-  )
-    return null;
   return {
     id: makeId(),
     type: "expense",
@@ -250,6 +241,40 @@ async function makeMemberPayment(member, data) {
   };
 }
 
+function confirmMemberPayment(entry) {
+  const recentPayment = state.records.some(
+    (record) =>
+      record.membershipId === entry.membershipId &&
+      Math.abs(new Date(record.occurredAt) - new Date(entry.occurredAt)) <
+        7 * 86400000,
+  );
+  return !recentPayment || confirm("近 7 天已为此会员记过付款记录。确定再次记入一笔吗？");
+}
+
+function checkMemberForPayment(member) {
+  const current = state.memberships.find((item) => item.id === member.id);
+  if (
+    !current ||
+    current.name !== member.name ||
+    current.currency !== member.currency ||
+    current.amountMinor !== member.amountMinor
+  ) {
+    throw new Error("订阅资料已变更，请重新打开付款窗口后重试。");
+  }
+}
+
+export async function recordMemberPayment(member, data) {
+  checkMemberForPayment(member);
+  const entry = await makeMemberPayment(member, data);
+  if (!entry) return false;
+
+  checkMemberForPayment(member);
+  if (!confirmMemberPayment(entry)) return false;
+
+  commit({ records: [entry, ...state.records] });
+  return true;
+}
+
 export async function saveMember(id, data) {
   const { currency, nextDate, cycle, active, autoRenew } = data;
   const name = data.name.trim().slice(0, 50);
@@ -268,7 +293,7 @@ export async function saveMember(id, data) {
     note: data.note.trim().slice(0, 100),
   };
   const entry = data.paid ? await makeMemberPayment(member, data) : null;
-  if (data.paid && !entry) return false;
+  if (data.paid && (!entry || !confirmMemberPayment(entry))) return false;
   if (id && !state.memberships.some((item) => item.id === id))
     throw new Error("此会员已被移除，请关闭窗口后重试。");
   if (!id && state.memberships.length >= 500)
@@ -280,7 +305,7 @@ export async function saveMember(id, data) {
     memberships,
     ...(entry ? { records: [entry, ...state.records] } : {}),
   });
-  return true;
+  return member.id;
 }
 
 export function deleteMember(id) {

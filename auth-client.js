@@ -194,7 +194,7 @@
   }
   const observer = new MutationObserver(() => section());
   const mount = () => {
-    const root = $("#root");
+    const root = $("#root") || $("#modal-root");
     if (root) observer.observe(root, { childList: true, subtree: true });
     section();
   };

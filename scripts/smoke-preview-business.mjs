@@ -67,7 +67,7 @@ async function smokePreviewBusiness(){
   await page.locator("#menu-open").click();
   await page.waitForSelector("#menu-drawer-layer.is-open");
   await page.locator('[data-action="backups"]').click();
-  await page.waitForSelector("#real-import-file");
+  await page.waitForSelector("#real-import-file",{state:"attached"});
   assert.match(await page.locator("#real-cloud-status").innerText(),/本地账本|Drive|同步/);
   const [download]=await Promise.all([page.waitForEvent("download"),page.locator('[data-real="export-json"]').click()]);
   const name=download.suggestedFilename();

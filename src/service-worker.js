@@ -5,6 +5,12 @@ const ENTRY_URL = new URL(
   self.registration.scope,
 );
 const MATERIAL_URLS = [
+  new URL("./src/preview-bridge.js", self.registration.scope),
+  new URL("./src/ledger.js", self.registration.scope),
+  new URL("./src/actions.js", self.registration.scope),
+  new URL("./src/drive.js", self.registration.scope),
+  new URL("./src/covers.js", self.registration.scope),
+  new URL("./auth-client.js", self.registration.scope),
   new URL("./liquid-ledger.css?v=studio-20261122-v5", self.registration.scope),
   new URL("./liquid-ledger.js?v=studio-20261122-v5", self.registration.scope),
   new URL("./liquid-nav-optics.js?v=optics-20261122-v3", self.registration.scope),

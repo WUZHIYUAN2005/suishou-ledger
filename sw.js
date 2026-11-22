@@ -1,4 +1,4 @@
-const REVISION = "2d24f1a76008";
+const REVISION = "9215fa2485ea";
 const CACHE_NAME = `suishou-ledger-static-${REVISION}`;
 const ENTRY_URL = new URL(
   `./index.html?v=${REVISION}`,

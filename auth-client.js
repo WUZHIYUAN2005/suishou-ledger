@@ -132,13 +132,28 @@
     }
     message("已停止长期连接");
   }
+  function authorizationButton(text, isV29) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = isV29 ? "glass" : "glass-button";
+    if (isV29) {
+      button.textContent = text;
+    } else {
+      const face = document.createElement("span");
+      face.className = "glass-face";
+      face.textContent = text;
+      button.append(face);
+    }
+    return button;
+  }
   function section() {
     const root = [...document.querySelectorAll(".management-section")]
       .find((node) => node.querySelector("h3")?.textContent.trim() === "Google Drive");
     if (!root || $("#suishou-long-auth", root)) return;
+    const isV29 = Boolean(root.closest("#real-backup-content"));
     const host = document.createElement("div");
     host.id = "suishou-long-auth";
-    host.style.cssText = "margin-top:14px;padding:13px;border:1px solid var(--inner-rim);border-radius:17px;background:var(--surface)";
+    host.style.cssText = "margin-top:14px;padding:13px;border:1px solid var(--inner-rim,var(--line));border-radius:17px;background:var(--surface)";
     const title = document.createElement("h4");
     title.textContent = "长期登录 · 自动刷新 Google 授权";
     title.style.cssText = "font-size:.9rem;margin:0 0 7px;font-weight:680";
@@ -154,16 +169,18 @@
     input.value = backend();
     input.autocomplete = "off";
     input.spellcheck = false;
-    input.style.cssText = "width:100%;margin-top:5px;padding:10px 11px;border:1px solid var(--rim);border-radius:12px;background:var(--inset);color:var(--ink);font:inherit";
+    if (isV29) {
+      label.className = "field";
+      input.style.marginTop = "5px";
+    } else {
+      input.style.cssText = "width:100%;margin-top:5px;padding:10px 11px;border:1px solid var(--rim);border-radius:12px;background:var(--inset);color:var(--ink);font:inherit";
+    }
     label.append(input);
     const buttons = document.createElement("div");
-    buttons.className = "action-row";
+    buttons.className = isV29 ? "form-actions" : "action-row";
     buttons.style.marginTop = "8px";
-    const connect = document.createElement("button");
-    connect.className = "glass-button";
-    connect.type = "button";
-    const face1 = document.createElement("span");face1.className = "glass-face";face1.textContent = "启用长期授权";
-    connect.append(face1);
+    if (isV29) buttons.style.flexWrap = "wrap";
+    const connect = authorizationButton("启用长期授权", isV29);
     connect.addEventListener("click", () => {
       try {
         const addr = cleanUrl(input.value);
@@ -173,11 +190,7 @@
         location.assign(addr + "/auth/start");
       } catch (error) { message(error.message, true); }
     });
-    const disconnect = document.createElement("button");
-    disconnect.className = "glass-button";
-    disconnect.type = "button";
-    const face2 = document.createElement("span");face2.className = "glass-face";face2.textContent = "撤销本设备长期授权";
-    disconnect.append(face2);
+    const disconnect = authorizationButton("撤销本设备长期授权", isV29);
     disconnect.addEventListener("click", async () => {
       if (!confirm("这会撤销本设备保存的长期 Google 授权，但不删除任何账单。确定继续？"))return;
       await stopLongSession();

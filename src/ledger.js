@@ -28,7 +28,14 @@ const CURRENCIES = [
   { code: "TWD", name: "新台币", digits: 0 },
   { code: "KRW", name: "韩元", digits: 0 },
   { code: "SGD", name: "新加坡元", digits: 2 },
+  { code: "INR", name: "印度卢比", digits: 2 },
 ];
+const PAYMENT_METHODS = {
+  debit: "借记卡",
+  credit: "信用卡",
+  wechat: "微信",
+  alipay: "支付宝",
+};
 const CATEGORY = {
   expense: [
     { name: "餐饮美食", icon: "☕", color: "#ef936f", bg: "#fff0e8" },
@@ -221,6 +228,11 @@ function validateRecords(records) {
     )
       throw new Error("备份中的储值卡引用不正确");
     if (
+      r.paymentMethod !== undefined &&
+      (typeof r.paymentMethod !== "string" || !Object.hasOwn(PAYMENT_METHODS, r.paymentMethod))
+    )
+      throw new Error("备份中的付款方式不正确");
+    if (
       r.membershipId !== undefined &&
       (typeof r.membershipId !== "string" || r.membershipId.length > 100)
     )
@@ -270,6 +282,9 @@ function validateRecords(records) {
           : new Date().toISOString(),
       ...(r.type === "expense" && r.paymentCardId
         ? { paymentCardId: r.paymentCardId }
+        : {}),
+      ...(r.type === "expense" && r.paymentMethod && !r.paymentCardId
+        ? { paymentMethod: r.paymentMethod }
         : {}),
       ...(r.type === "expense" && r.membershipId
         ? { membershipId: r.membershipId }
@@ -1215,6 +1230,7 @@ export {
   makeId,
   money,
   moneyDef,
+  PAYMENT_METHODS,
   parseMoney,
   parseNonnegativeMoney,
   saveCurrency,

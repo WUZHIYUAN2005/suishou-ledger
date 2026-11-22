@@ -1617,8 +1617,28 @@ html[data-layout="mobile"] #tuner-toggle{display:none!important}
  let choice='auto';
  try{const saved=localStorage.getItem(key);if(['auto','desktop','mobile'].includes(saved))choice=saved}catch(_){}
  function resolve(){return choice==='auto'?(media.matches&&!touchPlatform?'desktop':'mobile'):choice}
+ const mobileGlassKey='suishou-preview.mobile-glass.v1';
+ const defaults={strength:1,opacity:73,rim:72,'blur-slider':0,settle:.68};
+ const limits={strength:[0,2.5],opacity:[20,100],rim:[0,100],'blur-slider':[0,46],settle:[.1,1]};
+ let mobileGlass={...defaults};
+ try{
+   const saved=JSON.parse(localStorage.getItem(mobileGlassKey));
+   for(const [id,[min,max]] of Object.entries(limits)){
+     const value=saved?.[id];
+     if(Number.isFinite(value)&&value>=min&&value<=max)mobileGlass[id]=value;
+   }
+ }catch(_){}
+ function defaultGlass(layout){return layout==='mobile'?defaults:{...defaults,'blur-slider':23}}
+ function glassFor(layout){return layout==='mobile'?mobileGlass:defaultGlass(layout)}
  function apply(){
-   root.dataset.layout=resolve();root.dataset.layoutChoice=choice;
+   const layout=resolve();
+   if(root.dataset.layout!==layout){
+     const glass=glassFor(layout);
+     root.style.setProperty('--glass-alpha',glass.opacity/100);
+     root.style.setProperty('--rim-brightness',glass.rim/100);
+     root.style.setProperty('--blur',glass['blur-slider']+'px');
+   }
+   root.dataset.layout=layout;root.dataset.layoutChoice=choice;
    document.querySelectorAll('[data-layout-select]').forEach(b=>{
      b.setAttribute('aria-pressed',String(b.dataset.layoutSelect===choice));
    });
@@ -1628,7 +1648,14 @@ html[data-layout="mobile"] #tuner-toggle{display:none!important}
    if(!['auto','desktop','mobile'].includes(next))return;
    choice=next;try{localStorage.setItem(key,next)}catch(_){}
    apply();
- },apply};
+ },apply,
+ get glassValues(){return glassFor(root.dataset.layout)},
+ get glassDefaults(){return defaultGlass(root.dataset.layout)},
+ saveMobileGlass(values){
+   localStorage.setItem(mobileGlassKey,JSON.stringify(values));
+   mobileGlass=values;
+ }
+ };
  document.addEventListener('click',e=>{
    const button=e.target.closest?.('[data-layout-select]');
    if(button)window.__suishouLayout.set(button.dataset.layoutSelect);
@@ -1826,7 +1853,7 @@ function menu(){
    </nav>
    <details class="drawer-glass-settings">
      <summary class="glass drawer-glass-summary"><span>玻璃参数</span>${icon('chev-down',18)}</summary>
-     <div class="drawer-glass-body">${glassSettings}<button type="button" class="glass drawer-glass-reset" data-drawer-glass-reset>恢复默认</button></div>
+     <div class="drawer-glass-body">${glassSettings}<button type="button" class="glass drawer-glass-reset" data-drawer-glass-reset>恢复默认</button><button type="button" class="glass" data-drawer-glass-save>保存配置</button><p class="subtext" role="status" data-drawer-glass-status hidden></p></div>
    </details>
    <section class="menu-drawer-settings aria-label="显示方式设置"><span class="menu-drawer-settings-title">显示方式</span>
      <div class="menu-drawer-layout" role="group" aria-label="选择电脑或手机布局">${layoutChoices}</div>
@@ -1861,9 +1888,21 @@ function menu(){
    syncDrawerGlass();
  });
  sheet.addEventListener('click',e=>{
-   if(!e.target.closest('[data-drawer-glass-reset]'))return;
-   by('tuner-reset')?.click();
-   syncDrawerGlass();
+   if(e.target.closest('[data-drawer-glass-reset]')){
+     resetGlassControls();
+     syncDrawerGlass();
+     return;
+   }
+   if(!e.target.closest('[data-drawer-glass-save]'))return;
+   const settings=sheet.querySelector('.drawer-glass-settings');
+   const values=Object.fromEntries(controls.map(([id])=>[id,by(id).valueAsNumber]));
+   try{window.__suishouLayout.saveMobileGlass(values)}catch(_){
+     glassStatus(settings,'保存失败，请检查浏览器是否允许保存配置后重试。');
+     return;
+   }
+   settings.open=false;
+   closeMenuDrawer();
+   toast('已保存玻璃配置');
  });
  overlay.addEventListener('keydown',e=>{
   if(e.key==='Escape'){e.preventDefault();closeMenuDrawer();return;}
@@ -1882,8 +1921,21 @@ function menu(){
    if(dx< -70 && Math.abs(dx)>Math.abs(dy)*1.4)closeMenuDrawer();
  },{passive:true});
 }
+function glassStatus(settings,message){
+ const status=settings.querySelector('[data-drawer-glass-status]');
+ status.hidden=false;
+ status.textContent=message;
+}
+function activeGlassEditor(){return by('menu-drawer-layer')?.querySelector('.drawer-glass-settings[open]')}
+document.addEventListener('click',event=>{
+ const settings=activeGlassEditor();
+ if(!settings||(settings.contains(event.target)&&!event.target.closest('summary')))return;
+ event.preventDefault();
+ event.stopImmediatePropagation();
+ glassStatus(settings,'请先保存玻璃配置。');
+},true);
 function closeMenuDrawer(){
- const layer=by('menu-drawer-layer');if(!layer)return;
+ const layer=by('menu-drawer-layer');if(!layer||activeGlassEditor())return;
  layer.classList.remove('is-open');
  document.documentElement.classList.remove('menu-drawer-open');
  by('menu-open')?.setAttribute('aria-expanded','false');
@@ -1897,8 +1949,30 @@ document.querySelector('[data-side-action="new-entry"]')?.addEventListener('clic
 by('menu-open').onclick=menu;by('new-entry').onclick=addEntry;by('theme-toggle').onclick=()=>{S.theme=S.theme==='dark'?'light':'dark';render();optics?.dirtyScene()};by('search').addEventListener('input',e=>{S.query=e.target.value;render();by('search').focus()});
 const tuner=by('tuner');function toggleTuner(on){tuner.classList.toggle('hidden',!on);by('tuner-toggle').setAttribute('aria-expanded',String(on))}by('tuner-toggle').onclick=()=>toggleTuner(tuner.classList.contains('hidden'));by('tuner-close').onclick=()=>toggleTuner(false);
 const controls=[['strength','refraction',v=>Number(v).toFixed(2)+'×'],['opacity','opacity',v=>v+'%'],['rim','rim',v=>v+'%'],['blur-slider','blur',v=>v+'px'],['settle','settle',v=>Number(v).toFixed(2)]];
-for(const [id,key,format] of controls){by(id).addEventListener('input',e=>{const v=Number(e.target.value);S[key]=(id==='opacity'||id==='rim')?v/100:v;by(id.replace('-slider','')+'-out').textContent=format(v);document.documentElement.style.setProperty('--glass-alpha',S.opacity);document.documentElement.style.setProperty('--rim-brightness',S.rim);document.documentElement.style.setProperty('--blur',S.blur+'px');optics?.settingsChanged();})}
-by('tuner-reset').onclick=()=>{const vals={strength:1,opacity:73,rim:72,'blur-slider':23,settle:.68};for(const [id,val] of Object.entries(vals)){by(id).value=val;by(id).dispatchEvent(new Event('input'))}toast('已恢复玻璃默认参数')};
+let optics=null;
+function previewGlass(){
+ for(const [id,key,format] of controls){
+   const value=by(id).valueAsNumber;
+   S[key]=(id==='opacity'||id==='rim')?value/100:value;
+   by(id.replace('-slider','')+'-out').textContent=format(value);
+ }
+ const style=document.documentElement.style;
+ style.setProperty('--glass-alpha',S.opacity);
+ style.setProperty('--rim-brightness',S.rim);
+ style.setProperty('--blur',S.blur+'px');
+ optics?.settingsChanged();
+}
+function setGlassControls(values){
+ for(const [id] of controls)by(id).value=String(values[id]);
+ previewGlass();
+}
+for(const [id] of controls)by(id).addEventListener('input',previewGlass);
+setGlassControls(window.__suishouLayout.glassValues);
+function resetGlassControls(){
+ setGlassControls(window.__suishouLayout.glassDefaults);
+ toast('已恢复玻璃默认参数');
+}
+by('tuner-reset').onclick=resetGlassControls;
 function updateFallback(){const i=tabs.findIndex(t=>t.dataset.tab===S.tab);nav.style.setProperty('--lens-x',((nav.clientWidth-10)/5*Math.max(0,i))+'px')}
 // Touch: grab the persistent selected lens; its center follows displacement 1:1.
 let gesture=null,suppressClick=false;tabs.forEach(t=>t.addEventListener('click',e=>{if(suppressClick){e.preventDefault();return}if(!S.dragging)go(t.dataset.tab)}));
@@ -1908,6 +1982,7 @@ function endGesture(e,cancel=false){if(!gesture||gesture.id!==e.pointerId)return
 nav.addEventListener('keydown',e=>{const idx=tabs.findIndex(t=>t.dataset.tab===S.tab),step=({ArrowLeft:-1,ArrowRight:1,Home:-10,End:10})[e.key];if(step===undefined)return;e.preventDefault();const i=e.key==='Home'?0:e.key==='End'?4:Math.max(0,Math.min(4,idx+step));go(tabs[i].dataset.tab);tabs[i].focus()});
 // GPU nav rendering: cached wallpaper + cached separable Gaussian blur;
 // during finger movement only the refractive compositing pass is repainted.
+const useBlurTexture=()=>document.documentElement.dataset.layout!=='mobile'||S.blur>0;
 function createOptics(){const canvas=by('nav-glass');const gl=canvas.getContext('webgl2',{alpha:true,premultipliedAlpha:false,depth:false,stencil:false,antialias:true,powerPreference:'high-performance'});if(!gl)return null;
 const vertex=`#version 300 es\nprecision highp float;out vec2 uv;void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));uv=p;gl_Position=vec4(p*2.-1.,0.,1.);}`;
 const blur=`#version 300 es\nprecision highp float;in vec2 uv;uniform sampler2D scene;uniform vec2 stepUV;out vec4 frag;void main(){vec4 c=texture(scene,uv)*.227027;for(int i=1;i<=4;i++){float w=i==1?.1945946:i==2?.1216216:i==3?.054054:.016216;c+=(texture(scene,uv+stepUV*float(i))+texture(scene,uv-stepUV*float(i)))*w;}frag=c;}`;
@@ -1937,7 +2012,7 @@ function paintBackdrop(){
  }
  ctx.fillStyle=S.theme==='dark'?'#1c2740':'#e7ddf2';ctx.fillRect(0,0,w,h);const glows=S.theme==='dark'?[['#7e5576',.08,.33,.95],['#1a7193',.96,.55,.93],['#786dbe',.42,.1,.72]]:[['#deb3d5',.05,.28,.96],['#baddef',.98,.54,.93],['#cabef2',.43,.16,.7]];for(const [color,px,py,r] of glows){const g=ctx.createRadialGradient(w*px,h*py,0,w*px,h*py,w*r);g.addColorStop(0,color);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(0,0,w,h)}}
 function blurred(f,t,dx,dy){gl.bindFramebuffer(gl.FRAMEBUFFER,f);gl.viewport(0,0,pw,ph);gl.useProgram(bp);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,t);gl.uniform1i(bu.s,0);gl.uniform2f(bu.suv,dx,dy);gl.drawArrays(gl.TRIANGLES,0,3)}
-function prepare(){paintBackdrop();gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.bindTexture(gl.TEXTURE_2D,scene);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,gl.RGBA,gl.UNSIGNED_BYTE,bgc);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);blurred(fx,scene,1/pw,0);blurred(fy,tx,0,1/ph);dirty=false}
+function prepare(){paintBackdrop();gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.bindTexture(gl.TEXTURE_2D,scene);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,gl.RGBA,gl.UNSIGNED_BYTE,bgc);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);if(useBlurTexture()){blurred(fx,scene,1/pw,0);blurred(fy,tx,0,1/ph)}dirty=false}
 function selectedCenter(){return centers[S.lensIndex]??rect.width/10}
 function frame(t){
  raf=requestAnimationFrame(frame);
@@ -1967,7 +2042,7 @@ function frame(t){
   gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
   gl.useProgram(gp);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,scene);gl.uniform1i(gu.bg,0);
-  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,ty);gl.uniform1i(gu.blur,1);
+  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,useBlurTexture()?ty:scene);gl.uniform1i(gu.blur,1);
   gl.uniform2f(gu.size,rect.width,rect.height);
   gl.uniform2f(gu.patch,pw/scale,ph/scale);
   gl.uniform1f(gu.pad,34);gl.uniform1f(gu.x,x);
@@ -1991,7 +2066,15 @@ function release(){moving=false;lastPointerX=NaN;lastPointerTime=0}
 function settingsChanged(){dirty=true;prev=-999}
 function dirtyScene(){dirty=true}
 window.addEventListener('suishou-wallpaper-change',()=>{dirty=true;prev=-999});window.addEventListener('resize',()=>{refresh();dirty=true},{passive:true});canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();cancelAnimationFrame(raf);nav.classList.remove('gpu');by('perf-readout').textContent='WebGL 暂不可用，已切换单层玻璃 CSS';},{once:true});refresh();nav.classList.add('gpu');raf=requestAnimationFrame(frame);return{move,release,settingsChanged,dirtyScene}}
-let optics=null;try{optics=createOptics()}catch(e){console.warn('Preview optics fallback',e);by('perf-readout').textContent='WebGL 当前不可用：使用单层玻璃 CSS';}
+try{optics=createOptics()}catch(e){console.warn('Preview optics fallback',e);by('perf-readout').textContent='WebGL 当前不可用：使用单层玻璃 CSS';}
+
+let glassLayout=document.documentElement.dataset.layout;
+window.addEventListener('suishou-layout-change',()=>{
+ const root=document.documentElement;
+ if(glassLayout===root.dataset.layout)return;
+ glassLayout=root.dataset.layout;
+ setGlassControls(window.__suishouLayout.glassValues);
+});
 
 // Desktop-only optical cursor light. No pointer glow on coarse touch devices.
 /* v24: Desktop pointer metaball rendering disabled by request. */
@@ -2113,7 +2196,7 @@ render();
 })();
 </script>
 
-<script type="module" src="./src/preview-bridge.js?v=2d24f1a76008"></script>
-<script defer src="./auth-client.js?v=2d24f1a76008"></script>
+<script type="module" src="./src/preview-bridge.js?v=9215fa2485ea"></script>
+<script defer src="./auth-client.js?v=9215fa2485ea"></script>
 </body>
 </html>

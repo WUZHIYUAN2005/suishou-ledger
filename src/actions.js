@@ -10,6 +10,7 @@ import {
   makeId,
   money,
   moneyDef,
+  PAYMENT_METHODS,
   parseMoney,
   parseNonnegativeMoney,
   state,
@@ -27,6 +28,13 @@ const isDatetime = (value) =>
 export function amountInput(minor, currency) {
   const { digits } = moneyDef(currency);
   return (minor / 10 ** digits).toFixed(digits);
+}
+
+function selectedPaymentMethod(method) {
+  if (!method) return {};
+  if (typeof method !== "string" || !Object.hasOwn(PAYMENT_METHODS, method))
+    throw new Error("请选择有效的付款方式");
+  return { paymentMethod: method };
 }
 
 // Editing a card purchase restores the old payment before validating the new one.
@@ -64,6 +72,9 @@ export function saveEntry(id, data) {
     currency,
     occurredAt,
     createdAt: old?.createdAt ?? new Date().toISOString(),
+    ...(type === "expense" && !paymentCardId
+      ? selectedPaymentMethod(data.paymentMethod ?? old?.paymentMethod)
+      : {}),
     ...(paymentCardId ? { paymentCardId } : {}),
     ...(old?.membershipId && type === "expense"
       ? { membershipId: old.membershipId }
@@ -173,10 +184,11 @@ async function makeMemberPayment(member, data) {
   if (!isDatetime(when)) throw new Error("请输入有效的实际付款时间");
   if (!CATEGORY.expense.some((item) => item.name === category))
     throw new Error("请选择有效的支出分类");
+  const payment = selectedPaymentMethod(data.paymentMethod);
   const override = data.actualCny.trim();
   const actual = override ? parseMoney(override, "CNY") : null;
   if (override && actual === null)
-    throw new Error("银行实际扣款人民币金额无效");
+    throw new Error("实际扣款人民币金额无效");
 
   let snapshot;
   let amountCny;
@@ -195,7 +207,7 @@ async function makeMemberPayment(member, data) {
       snapshot = await getCnyRate(currency, true);
     } catch (_) {
       throw new Error(
-        "暂时无法获取最新参考汇率。请联网后重试，或填写银行卡实际扣款的人民币金额。",
+        "暂时无法获取最新参考汇率。请联网后重试，或填写实际扣款的人民币金额。",
       );
     }
     amountCny = estimateCny(amountMinor, currency, snapshot.rate);
@@ -225,6 +237,7 @@ async function makeMemberPayment(member, data) {
     amountMinor: amountCny,
     occurredAt: when,
     createdAt: new Date().toISOString(),
+    ...payment,
     membershipId: member.id,
     ...(snapshot
       ? {

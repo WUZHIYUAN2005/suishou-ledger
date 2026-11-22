@@ -20,7 +20,7 @@ await new Promise(r=>server.listen(0,"127.0.0.1",r));
 const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
 const page=await browser.newPage({viewport:{width:1440,height:900},colorScheme:"dark"});
 const errors=[];
-page.on("pageerror",e=>errors.push(e.message));
+page.on("pageerror",e=>{errors.push(e.message);console.error("BROWSER_PAGEERROR",e.message)});
 try{
  const base="http://127.0.0.1:"+server.address().port+"/";
  await page.goto(base,{waitUntil:"load"});
@@ -41,6 +41,14 @@ try{
  await page.locator('.v29-side-left [data-v29-view="bills"]').click();
  await page.waitForFunction(()=>document.querySelector('#tab-bills')?.getAttribute("aria-selected")==="true");
  await page.locator('.v29-side-left [data-v29-action="gallery"]').click();
+ await page.waitForTimeout(250);
+ console.log("GALLERY_DIAGNOSTIC", JSON.stringify(await page.evaluate(()=>({
+  dialogExists:!!document.querySelector("#v29-wallpaper-dialog"),
+  dialogOpen:document.querySelector("#v29-wallpaper-dialog")?.open,
+  dialogConnected:document.querySelector("#v29-wallpaper-dialog")?.isConnected,
+  selected:document.querySelector(".v29-side-left [data-v29-action=gallery]")?.outerHTML.slice(0,250),
+  mode:document.documentElement.dataset.v29Layout
+ }))));
  await page.waitForFunction(()=>document.querySelector("#v29-wallpaper-dialog")?.open);
  await page.locator('#v29-wallpaper-dialog [data-v29-wallpaper="cosmos"]').click();
  assert.equal(await page.evaluate(()=>document.documentElement.dataset.v29Wallpaper),"cosmos");

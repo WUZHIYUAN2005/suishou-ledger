@@ -90,7 +90,11 @@
   }
   function cleanupTabGesture(gesture){
     gesture.nav.classList.remove("is-scrubbing");
-    gesture.nav.style.removeProperty("--lens-drag-x");
+    // Preserve the last finger position until the lens has faded out.
+    setTimeout(()=>{
+      if(!gesture.nav.classList.contains("is-scrubbing"))
+        gesture.nav.style.removeProperty("--lens-drag-x");
+    },190);
     if(gesture.nav.hasPointerCapture?.(gesture.pointerId)){
       try{gesture.nav.releasePointerCapture(gesture.pointerId)}catch(_){}
     }

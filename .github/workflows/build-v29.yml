@@ -47,8 +47,8 @@ jobs:
             assert(html.includes('suishou-preview.layout.v20'), 'Original mobile/desktop layout missing');
             assert(html.includes('src/preview-bridge.js'), 'Business bridge not included');
             assert(html.includes('auth-client.js'), 'Long-term OAuth integration missing');
-            const baselineStyle=baseline.match(/<style[^>]*>[\\s\\S]*?<\\/style>/g);
-            const builtStyle=html.match(/<style[^>]*>[\\s\\S]*?<\\/style>/g);
+            const baselineStyle=baseline.match(/<style[^>]*>[\s\S]*?<\/style>/g);
+            const builtStyle=html.match(/<style[^>]*>[\s\S]*?<\/style>/g);
             assert.deepEqual(builtStyle,baselineStyle,'Visual CSS must be byte-for-byte unchanged');
           }
           const source=fs.readFileSync('src/preview-bridge.js','utf8');

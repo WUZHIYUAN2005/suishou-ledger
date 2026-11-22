@@ -357,3 +357,33 @@ body::before{
   .page-enter,.sheet[open]{animation:none!important}
   .glass-button,.wallet-card,.view-tabs .active-lens{transition-duration:.01ms!important}
 }
+
+/* 2026-11-22: one outline for display panels, preserve glass button layers. */
+.glass-panel{padding:0}
+.glass-panel::before{display:none}
+.glass-panel>.panel-face{
+  border:0;border-radius:inherit;background:transparent;box-shadow:none;
+}
+/* Subscription view has a single visible card, with no extra outer frame. */
+.members-panel{
+  border:0;background:transparent;box-shadow:none;
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+}
+.members-panel>.panel-face{padding:0}
+.members-grid{grid-template-columns:minmax(0,1fr)}
+/* Tab selection is indicated by typography until the finger starts moving. */
+.view-tabs{touch-action:pan-y}
+.view-tabs [role="tab"]{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.view-tabs .active-lens{
+  opacity:0;visibility:hidden;pointer-events:none;
+  transform:translate3d(var(--lens-drag-x,0px),0,0);
+  transition:opacity .15s ease,visibility .15s;
+  will-change:transform,opacity;
+}
+.view-tabs.is-scrubbing .active-lens{
+  opacity:1;visibility:visible;
+  transition:opacity .12s ease;
+}
+.view-tabs button:not(:disabled):hover{background:transparent}
+.view-tabs button[aria-selected="true"] .glass-face{border:0;box-shadow:none}
+

@@ -74,6 +74,7 @@
    '<div class="v29-gallery-grid">'+thumbs+'</div>'+
    '<div class="v29-strength"><label for="v29-strength">背景图案强度</label><input id="v29-strength" type="range" min=".15" max="1" step=".05" value="'+strength+'"><output id="v29-strength-value"></output></div>';
   document.body.append(gallery);
+  gallery.querySelector("#v29-strength").addEventListener("input",e=>{ strength=Math.min(1,Math.max(.15,Number(e.target.value)||.88));put("strength",strength);updateThemeLayout(); });
   gallery.querySelector('[data-v29-action="close-gallery"]').addEventListener("click",e=>{
     e.stopPropagation();
     if(gallery.open)gallery.close();
@@ -120,7 +121,7 @@
   });
   // Capture on document: React delegates clicks at its root and may stop bubbling for injected controls.
   document.addEventListener("click",actions,true);
-  document.addEventListener("input",inputs);
+  document.addEventListener("input",inputs,true);
   document.addEventListener("click",e=>{
    const menu=e.target.closest?.(".menu-trigger");
    if(!menu)return;
@@ -194,6 +195,7 @@
   root.style.setProperty("--v29-alpha",settings.alpha.toFixed(2));
   root.style.setProperty("--v29-rim",settings.rim.toFixed(2));
   root.style.setProperty("--v29-blur",settings.blur+"px");
+  root.style.setProperty("--v29-spring",String(settings.spring));
   const amount=settings.spring/100;
   root.style.setProperty("--pop","cubic-bezier(.18,"+(0.7+amount*.3).toFixed(2)+",.24,"+(1.02+amount*.4).toFixed(2)+")");
   for(const p of PARAMS){

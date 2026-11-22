@@ -29,12 +29,16 @@
     let item=springs.get(el);
     if(!item){item={value:1,velocity:0,target:1,raf:0};springs.set(el,item);}
     item.target=active?0.942:1;
+    const spring=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--v29-spring"));
+    const p=Number.isFinite(spring)?Math.max(0,Math.min(100,spring))/100:.58;
+    item.stiffness=.11+.07*p;
+    item.damping=.65+.17*p;
     if(item.raf)return;
     const tick=()=>{
       if(!el.isConnected || reduceMotion.matches){
         el.style.removeProperty("--liquid-scale");springs.delete(el);return;
       }
-      item.velocity=(item.velocity+(item.target-item.value)*.14)*.72;
+      item.velocity=(item.velocity+(item.target-item.value)*item.stiffness)*item.damping;
       item.value+=item.velocity;
       el.style.setProperty("--liquid-scale",item.value.toFixed(4));
       if(Math.abs(item.target-item.value)<.001&&Math.abs(item.velocity)<.001){

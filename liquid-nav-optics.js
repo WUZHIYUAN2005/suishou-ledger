@@ -287,7 +287,8 @@ function install(nav){
   gl.uniform1f(gu.alpha,1.0);
   gl.uniform1f(gu.width,cached.width);
   gl.uniform1f(gu.margin,MARGIN);
-  gl.uniform1f(gu.ior,IOR);
+  const customIor=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--v29-ior"));
+  gl.uniform1f(gu.ior,Number.isFinite(customIor)?Math.max(1.30,Math.min(1.70,customIor)):IOR);
   gl.uniform1f(gu.dark,dark?1:0);
   gl.drawArrays(gl.TRIANGLES,0,3);
   info.drawMs=performance.now()-start;

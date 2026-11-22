@@ -32,6 +32,7 @@ function bootPreviewBridge(){
   async function loadCover(id){
     if(coverUrl){URL.revokeObjectURL(coverUrl);coverUrl="";}
     S.editedCover=null;coverId=id||"";
+    view.render();
     if(!id)return;
     try{
       const covers=await readCovers();

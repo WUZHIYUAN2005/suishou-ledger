@@ -1,5 +1,5 @@
 import {CATEGORY,CURRENCIES,BACKUP_FREQUENCIES,getSnapshot,subscribe,localDatetime,saveCurrency,getCategoryInfo,money,loadGoogleAuthorization,getGoogleTokenFromClick,syncCloud,disconnectCloud,setBackupFrequency,listBackupFolders,createBackupFolder,setBackupFolder,commit,validateRecords,validateCards,validateMemberships} from "./ledger.js";
-import {amountInput,saveEntry,deleteEntry,saveCard,deleteCard,topupCard,CYCLE_NAMES,saveMember,deleteMember,downloadBackup,downloadMigrationBackup,importBackup} from "./actions.js";
+import {amountInput,saveEntry,deleteEntry,saveCard,deleteCard,topupCard,CYCLE_NAMES,saveMember,deleteMember,downloadBackup,downloadMigrationBackup,importBackup,clearRecords} from "./actions.js";
 import {readCovers,putCover,removeCover,readCoverImage} from "./covers.js";
 
 function bootPreviewBridge(){
@@ -107,6 +107,10 @@ function bootPreviewBridge(){
       ${field("备注",input("note",m?.note||"","text","maxlength='100'"))}
       ${field("状态",`<label><input type="checkbox" name="active" ${m?.active!==false?"checked":""}> 订阅有效</label>`)}
       ${field("自动续订",`<label><input type="checkbox" name="autoRenew" ${m?.autoRenew!==false?"checked":""}> 自动续订</label>`)}
+      ${field("同时生成实际付款账单（可选）",`<label><input type="checkbox" name="paid"> 此次已经付款</label>`)}
+      ${field("实际付款时间",input("when",now(),"datetime-local"))}
+      ${field("付款支出分类",select("paymentCategory",CATEGORY.expense.map(c=>[c.name,c.name]),"娱乐休闲"))}
+      ${field("银行实际扣款人民币金额（外币可选）",input("actualCny","","number","min='0.01' step='any'"))}
       ${actions(submit(m?"保存修改":"添加订阅")+(m?btn("删除订阅","delete-member:"+m.id):""))}
     </form>`);
   }
@@ -144,7 +148,7 @@ function bootPreviewBridge(){
      </section>
      <section class="management-section"><h3>本地 JSON 备份</h3>
        <p class="subtext">导出包含账目、卡包与订阅。迁移备份还包含卡片封面。</p>
-       <div class="form-actions">${btn("导出 JSON","export-json")}${btn("导出迁移备份（含封面）","export-migration")}${btn("选择 JSON 恢复","pick-import")}</div>
+       <div class="form-actions">${btn("导出 JSON","export-json")}${btn("导出迁移备份（含封面）","export-migration")}${btn("选择 JSON 恢复","pick-import")}${btn("安全合并恢复","safe-restore")}${btn("清空账单","clear-records")}</div>
        <input type="file" id="real-import-file" accept=".json,application/json" hidden>
        <p class="subtext">导入前会再次确认覆盖范围。旧版 V1 备份仅替换账单。</p>
      </section>`);
@@ -237,6 +241,8 @@ function bootPreviewBridge(){
     if(kind==="export-json"){downloadBackup();return;}
     if(kind==="export-migration"){await downloadMigrationBackup();return;}
     if(kind==="pick-import"){$("real-import-file")?.click();return;}
+    if(kind==="safe-restore"){modal("安全恢复 · 合并订阅与卡包",`<iframe title="安全恢复" src="./restore-data.html?embedded=1" style="width:100%;height:65vh;border:0;border-radius:12px"></iframe><p class="subtext">恢复完成后重新打开网页，即可查看更新的数据。</p>`);return;}
+    if(kind==="clear-records"){if(clearRecords()){view.closeModal();view.toast("账单已清空");}return;}
     if(kind==="cloud-folder"){await chooseFolder();return;}
   }
   document.addEventListener("change",e=>{
@@ -256,7 +262,7 @@ function bootPreviewBridge(){
     void (async()=>{
       const d=values(form),id=form.dataset.id||null;
       if(form.id==="real-entry")saveEntry(id,{type:d.type,name:d.name,amount:d.amount,currency:d.currency,category:d.category,occurredAt:d.occurredAt,paymentCardId:d.type==="expense"?d.paymentCardId:""});
-      if(form.id==="real-member")await saveMember(id,{name:d.name,amount:d.amount,currency:d.currency,cycle:d.cycle,nextDate:d.nextDate,note:d.note||"",active:!!form.elements.active.checked,autoRenew:!!form.elements.autoRenew.checked,paid:false});
+      if(form.id==="real-member")await saveMember(id,{name:d.name,amount:d.amount,currency:d.currency,cycle:d.cycle,nextDate:d.nextDate,note:d.note||"",active:!!form.elements.active.checked,autoRenew:!!form.elements.autoRenew.checked,paid:!!form.elements.paid.checked,when:d.when,category:d.paymentCategory,actualCny:d.actualCny||""});
       if(form.id==="real-card"){const newId=saveCard(id,{name:d.name,balance:d.balance,currency:d.currency});S.card=getSnapshot().cards.findIndex(c=>c.id===newId);}
       if(form.id==="real-topup")topupCard(id,d.amount);
       if(form.id==="real-cloud-folder"){

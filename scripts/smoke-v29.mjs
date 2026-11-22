@@ -38,6 +38,18 @@ try{
  assert(left&&nav&&right,"desktop columns must all be visible");
  assert(Math.abs(left.y-nav.y)<3,"left rail must align to nav top");
  assert(Math.abs(right.y-nav.y)<3,"right rail must align to nav top");
+ const header=await page.locator(".top-bar").boundingBox();
+ assert(header&&header.y<nav.y,"desktop must show the original header with cat, menu, and cloud");
+ assert.equal(await page.locator(".top-bar .menu-trigger svg path").getAttribute("d"),"M4 6h16M4 12h16M4 18h16");
+ await page.locator(".v29-side-left [data-v29-view='overview']").click();
+ await page.waitForFunction(()=>document.querySelector('#tab-overview')?.getAttribute("aria-selected")==="true");
+ const overview=await page.locator("#pane-overview").boundingBox();
+ const incomes=await page.locator("#pane-overview .figure-grid").boundingBox();
+ const recent=await page.locator("#pane-overview .recent-panel").boundingBox();
+ assert(overview&&incomes&&recent&&recent.x>incomes.x+incomes.width-2,"v29 desktop overview: figures left, recent bills right");
+ assert.equal(await page.locator("#pane-overview .figure-grid .figure").count(),2);
+ assert.equal(await page.locator(".v29-side-right .v29-summary-card").count(),2);
+ assert.equal(await page.locator(".v29-side-right .v29-balance-track").count(),1);
  await page.locator('.v29-side-left [data-v29-view="bills"]').click();
  await page.waitForFunction(()=>document.querySelector('#tab-bills')?.getAttribute("aria-selected")==="true");
  await page.locator('.v29-side-left [data-v29-action="gallery"]').click();

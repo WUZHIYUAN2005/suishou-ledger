@@ -9,7 +9,7 @@
  const THEMES=[["original","经典渐变"],["garden","兔子花园"],["cosmos","星际漫游"],["tech","科技生活"]];
  const PARAMS=[
   {key:"ior",label:"折射率",min:1.30,max:1.70,step:.01,value:1.49},
-  {key:"alpha",label:"玻璃透明度",min:.18,max:.86,step:.01,value:.62},
+  {key:"alpha",label:"玻璃透明度",min:.18,max:.86,step:.01,value:.73},
   {key:"rim",label:"边缘高光",min:.08,max:.80,step:.01,value:.33},
   {key:"blur",label:"背景模糊",min:8,max:38,step:1,value:23},
   {key:"spring",label:"水滴弹性",min:0,max:100,step:1,value:58}
@@ -27,6 +27,21 @@
  const htmlEscape=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const modeControls=()=>'<div class="v29-mode-row" role="group" aria-label="显示方式">'+[["auto","自动"],["desktop","电脑"],["mobile","手机"]].map(([v,t])=>'<button type="button" data-v29-layout="'+v+'" aria-pressed="false">'+t+'</button>').join("")+'</div>';
  const links=()=>VIEWS.map(([id,label])=>'<button type="button" class="v29-link" data-v29-view="'+id+'"><span>'+label+'</span><span aria-hidden="true">›</span></button>').join("");
+ const GLYPHS={
+  overview:"M3 11 12 3l9 8v9h-7v-7h-4v7H3z",
+  bills:"M5 3h14v18l-3.5-2-3.5 2-3.5-2L5 21V3m3 5h8m-8 4h6",
+  stats:"M3 20h18M6 18V9m6 9V4m6 14v-7",
+  members:"M4 5h16v16H4zM8 3v4m8-4v4M4 10h16",
+  cards:"M3 5h18v15H3zM3 9h18m-6 5h3",
+  new:"M12 4v16M4 12h16",cloud:"M20 18H6a4 4 0 0 1-1-8 6.5 6.5 0 0 1 13 1 3.5 3.5 0 0 1 2 7Z",
+  manage:"M4 4h16v16H4zM8 8h8M8 12h8M8 16h5",
+  recover:"M12 3a9 9 0 1 1-9 9m0-7v7h7m2-3v5l3 2",
+  gallery:"M3 4h18v16H3zM3 16l5-5 4 4 4-5 5 5M8 9h.01",
+  parameters:"M3 7h18M3 17h18M8 5v4M16 15v4"
+ };
+ const glyph=name=>'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(GLYPHS[name]||GLYPHS.overview)+'"/></svg>';
+ const sideLinks=()=>VIEWS.map(([id,label])=>'<button type="button" class="v29-link" data-v29-view="'+id+'">'+glyph(id)+'<span>'+({members:"订阅管理",cards:"我的卡包"}[id]||label)+'</span></button>').join("");
+ const sideActions=()=>[["new","记一笔"],["cloud","云端备份"],["manage","数据管理与备份"],["recover","安全恢复订阅与卡包"],["gallery","背景图库"]].map(([id,label])=>'<button type="button" class="v29-link" data-v29-action="'+id+'">'+glyph(id)+'<span>'+label+'</span></button>').join("");
  const extraLinks=()=>[
   ["new","记一笔"],["cloud","云端备份"],["manage","数据管理与备份"],["recover","安全恢复订阅与卡包"],["gallery","背景图库"]
  ].map(([id,label])=>'<button class="v29-link" type="button" data-v29-action="'+id+'"><span>'+label+'</span><span aria-hidden="true">›</span></button>').join("");
@@ -38,23 +53,24 @@
   if(!shell||document.getElementById("v29-drawer-backdrop"))return false;
   const left=document.createElement("aside");
   left.className="v29-side-left";left.setAttribute("aria-label","电脑端账本菜单");
-  left.innerHTML='<div class="v29-brand"><span class="v29-brand-icon" aria-hidden="true">▣</span>随手账本</div>'+
-    '<div class="v29-side-title">账本</div><nav class="v29-links" aria-label="电脑端页面">'+links()+'</nav>'+
-    '<div class="v29-side-title">操作</div><div class="v29-links">'+extraLinks()+'</div>'+
-    '<div class="v29-side-title">显示方式</div>'+modeControls()+
-    '<details class="v29-drawer-settings" style="margin-top:13px"><summary>玻璃参数 <span aria-hidden="true">⌄</span></summary>'+settingsFields()+'</details>';
+  left.innerHTML='<div class="v29-brand"><span class="v29-brand-icon" aria-hidden="true">'+glyph("cards")+'</span><strong>随手账本</strong></div>'+
+    '<nav class="v29-side-links" aria-label="电脑端页面">'+sideLinks()+'</nav>'+
+    '<nav class="v29-side-links" aria-label="常用操作">'+sideActions()+'</nav>'+
+    '<section class="v29-side-settings"><span class="v29-side-title">显示方式</span>'+modeControls()+'</section>'+
+    '<details class="v29-drawer-settings"><summary>'+glyph("parameters")+' 玻璃参数 <span aria-hidden="true">⌄</span></summary>'+settingsFields()+'</details>';
   const right=document.createElement("aside");
   right.className="v29-side-right";right.setAttribute("aria-label","财务摘要");
-  right.innerHTML='<div class="v29-summary-card"><h3>本月财务摘要</h3>'+
+  right.innerHTML='<section class="v29-summary-card"><h3>当前统计区间</h3><small class="v29-period" data-v29-metric="period">—</small>'+
    '<div class="v29-metric"><small>收入</small><strong data-v29-metric="income">—</strong></div>'+
    '<div class="v29-metric expense"><small>支出</small><strong data-v29-metric="expense">—</strong></div>'+
-   '<div class="v29-summary-row"><span>账单数量</span><strong data-v29-metric="count">—</strong></div>'+
-   '<div class="v29-summary-row"><span>0 元记录</span><strong data-v29-metric="zero">—</strong></div>'+
-   '</div><div class="v29-summary-card"><h3>快捷查看</h3>'+
+   '<div class="v29-balance-track" aria-label="收支比例"><span data-v29-ratio style="width:50%"></span></div>'+
+   '<div class="v29-summary-row"><span>记录笔数</span><strong data-v29-metric="count">—</strong></div>'+
+   '<div class="v29-summary-row"><span>零元记录</span><strong data-v29-metric="zero">—</strong></div></section>'+
+   '<section class="v29-summary-card"><h3>快捷查看</h3>'+
    '<div class="v29-summary-row"><span>订阅项目</span><strong data-v29-metric="members">—</strong></div>'+
    '<div class="v29-summary-row"><span>卡包卡片</span><strong data-v29-metric="cards">—</strong></div>'+
    '<div class="v29-summary-row"><span>当前页面</span><strong data-v29-metric="page">总览</strong></div>'+
-   '<button class="v29-text-button" style="width:100%;margin-top:12px" data-v29-view="stats">查看分类统计</button></div>';
+   '<button class="v29-text-button" style="width:100%;margin-top:12px" data-v29-view="stats">查看分类统计 '+glyph("stats")+'</button></section>';
   shell.append(left,right);
   const backdrop=document.createElement("div");
   backdrop.id="v29-drawer-backdrop";backdrop.className="v29-backdrop";backdrop.setAttribute("aria-hidden","true");
@@ -233,6 +249,7 @@
  function renderSummary(){
   if(!summary)return;
   for(const [key,value] of Object.entries(summary)){
+   if(key==="ratio"){const bar=document.querySelector("[data-v29-ratio]");if(bar)bar.style.width=Math.min(100,Math.max(0,Number(value)||0))+"%";continue}
    document.querySelectorAll('[data-v29-metric="'+key+'"]').forEach(n=>{if(n.textContent!==String(value))n.textContent=String(value)});
   }
   updateSelected();

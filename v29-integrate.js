@@ -78,7 +78,15 @@
   repair.style.cssText="width:min(94vw,780px);height:min(92dvh,850px);padding:12px;display:none;flex-direction:column";
   repair.innerHTML='<div class="v29-dialog-title"><h2>安全恢复订阅与卡包</h2><button class="v29-close" type="button" data-v29-action="close-restore">×</button></div><iframe title="随手账本安全恢复" src="about:blank" style="width:100%;min-height:0;flex:1;border:0;background:#f2f0fa;border-radius:12px"></iframe>';
   document.body.append(repair);
-  gallery.addEventListener("click",e=>{if(e.target===gallery)gallery.close()});
+  // Gallery stays open until its close button or Escape. Opening a modal during
+  // a captured click can otherwise forward the same pointer click to the backdrop.
+  const showGallery=()=>requestAnimationFrame(()=>{
+    const dialog=document.getElementById("v29-wallpaper-dialog");
+    if(dialog&&!dialog.open)dialog.showModal();
+  });
+  document.querySelectorAll('[data-v29-action="gallery"]').forEach(button=>{
+    button.addEventListener("click",e=>{e.stopPropagation();closeDrawer();showGallery()});
+  });
   repair.addEventListener("click",e=>{if(e.target===repair)repair.close()});
   repair.addEventListener("close",()=>{repair.style.display="none";const frame=repair.querySelector("iframe");if(frame?.src!=="about:blank")location.reload()});
   backdrop.addEventListener("pointerdown",e=>{if(e.target.closest(".v29-drawer"))swipeStart={x:e.clientX,y:e.clientY}});
@@ -146,7 +154,7 @@
    case "close":closeDrawer();break;
    case "close-gallery":document.getElementById("v29-wallpaper-dialog")?.close();break;
    case "close-restore":document.getElementById("v29-restore-dialog")?.close();break;
-   case "gallery":closeDrawer();document.getElementById("v29-wallpaper-dialog")?.showModal();break;
+   case "gallery":closeDrawer();showGallery();break;
    case "cloud":reactButton(".cloud-trigger");break;
    case "manage":reactButton(".avatar-button");break;
    case "new":reactButton(".compose-button");break;

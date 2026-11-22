@@ -26,6 +26,9 @@ function applyPreviewPatch(original,revision="integrated"){
  replaceOne("money(S.cards[S.card].balance)","money(S.cards[S.card]?.balance||0,S.cards[S.card]?.currency||'CNY')","zero-card safe balance");
  replaceOne("render();\n})();\n</script>",
  "S.records=[];S.subscriptions=[];S.cards=[];window.__suishouPreview={state:S,render,go,modal,closeModal,toast};\nrender();\n})();\n</script>","expose preview, clear demo data");
+ replaceOne("</head>",
+ '<link rel="manifest" href="./manifest.webmanifest">\n<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">\n<link rel="apple-touch-icon" href="./icon-180.png">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-title" content="随手账本">\n</head>',
+ "preserve invisible PWA metadata");
  replaceOne("</body>",
  `<script type="module" src="./src/preview-bridge.js?v=${revision}"></script>\n<script defer src="./auth-client.js?v=${revision}"></script>\n</body>`,
  "load real business bridge");

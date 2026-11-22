@@ -5,7 +5,7 @@ const ENTRY_URL = new URL(
   self.registration.scope,
 );
 const MATERIAL_URLS = [
-  new URL("./liquid-ledger.css?v=studio-20261122-v4", self.registration.scope),
+  new URL("./liquid-ledger.css?v=studio-20261122-v5", self.registration.scope),
   new URL("./liquid-ledger.js?v=studio-20261122-v4", self.registration.scope),
   new URL("./liquid-nav-optics.js?v=optics-20261122-v2", self.registration.scope),
 ];

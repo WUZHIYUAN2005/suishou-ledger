@@ -93,7 +93,8 @@
     else if(!e.shiftKey&&document.activeElement===focus.at(-1)){e.preventDefault();focus[0].focus()}
    }
   });
-  document.addEventListener("click",actions);
+  // Capture on document: React delegates clicks at its root and may stop bubbling for injected controls.
+  document.addEventListener("click",actions,true);
   document.addEventListener("input",inputs);
   document.addEventListener("click",e=>{
    const menu=e.target.closest?.(".menu-trigger");

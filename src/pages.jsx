@@ -607,7 +607,6 @@ export function Members({ memberships, range, changeRange, open }) {
         Number(b.active) - Number(a.active) ||
         a.nextDate.localeCompare(b.nextDate),
     );
-  const members = visible.filter((item) => item.cycle === "once");
   const recurring = visible.filter((item) => item.cycle !== "once");
   const yearly = new Map();
   for (const { currency, amountMinor, cycle, active } of recurring) {
@@ -629,26 +628,11 @@ export function Members({ memberships, range, changeRange, open }) {
   return (
     <>
       <div className="page-heading">
-        <h1>会员与订阅</h1>
+        <h1>订阅</h1>
         <MonthFilter range={range} onChange={changeRange} browseFromAll />
       </div>
-      <Panel className="members-panel" aria-label="会员与订阅">
+      <Panel className="members-panel" aria-label="订阅">
         <div className="members-grid">
-          <Panel className="member-column" aria-label="会员">
-            <PanelHeading title="会员">
-              <span className="muted">{members.length} 项</span>
-            </PanelHeading>
-            {members.length ? (
-              members.map((member) => (
-                <MemberRow key={member.id} member={member} open={open} />
-              ))
-            ) : (
-              <Empty
-                icon="card"
-                title={range.all ? "还没有一次性会员" : "本月没有到期会员"}
-              />
-            )}
-          </Panel>
           <Panel className="member-column" aria-label="订阅">
             <PanelHeading title="订阅">
               <span className="muted">{recurring.length} 项</span>
@@ -689,7 +673,7 @@ export function Members({ memberships, range, changeRange, open }) {
           </Panel>
         </div>
         <GlassButton className="wide" onClick={() => open()}>
-          <Icon name="plus" size={17} /> 添加会员 / 订阅
+          <Icon name="plus" size={17} /> 添加订阅
         </GlassButton>
       </Panel>
     </>

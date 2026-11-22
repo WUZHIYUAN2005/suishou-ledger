@@ -68,6 +68,91 @@
   document.addEventListener("pointerup",release,{passive:true,capture:true});
   document.addEventListener("pointercancel",release,{passive:true,capture:true});
 
+
+  // Drag-select the five-page tab bar on touch screens; taps and keyboard stay native.
+  const tabGestures = new Map();
+  let swipeClickGuard = null;
+  function tabNodes(nav){
+    return [...nav.querySelectorAll('[role="tab"]')];
+  }
+  function moveTabLens(gesture, clientX){
+    const nav=gesture.nav;
+    const tabs=tabNodes(nav);
+    if(!tabs.length)return 0;
+    const rect=nav.getBoundingClientRect();
+    const pad=parseFloat(getComputedStyle(nav).paddingLeft)||0;
+    const track=Math.max(1,nav.clientWidth-nav.clientLeft*2-pad*2);
+    const tabWidth=track/tabs.length;
+    const center=clientX-rect.left-nav.clientLeft-pad;
+    const offset=Math.min(tabWidth*(tabs.length-1),Math.max(0,center-tabWidth/2));
+    nav.style.setProperty("--lens-drag-x",offset.toFixed(2)+"px");
+    return Math.max(0,Math.min(tabs.length-1,Math.floor(Math.max(0,Math.min(track-0.01,center))/tabWidth)));
+  }
+  function cleanupTabGesture(gesture){
+    gesture.nav.classList.remove("is-scrubbing");
+    // Preserve the last finger position until the lens has faded out.
+    setTimeout(()=>{
+      if(!gesture.nav.classList.contains("is-scrubbing"))
+        gesture.nav.style.removeProperty("--lens-drag-x");
+    },190);
+    if(gesture.nav.hasPointerCapture?.(gesture.pointerId)){
+      try{gesture.nav.releasePointerCapture(gesture.pointerId)}catch(_){}
+    }
+  }
+  document.addEventListener("pointerdown",e=>{
+    if((e.pointerType!=="touch"&&e.pointerType!=="pen")||e.button!==0)return;
+    const tab=e.target.closest?.('.view-tabs [role="tab"]');
+    if(!tab)return;
+    const nav=tab.closest(".view-tabs");
+    if(!nav)return;
+    tabGestures.set(e.pointerId,{
+      pointerId:e.pointerId,nav,startX:e.clientX,startY:e.clientY,
+      dragging:false,index:tabNodes(nav).indexOf(tab)
+    });
+  },{capture:true,passive:true});
+  document.addEventListener("pointermove",e=>{
+    const gesture=tabGestures.get(e.pointerId);
+    if(!gesture)return;
+    if(!gesture.nav.isConnected){tabGestures.delete(e.pointerId);return;}
+    const dx=e.clientX-gesture.startX,dy=e.clientY-gesture.startY;
+    if(!gesture.dragging){
+      if(Math.abs(dy)>9&&Math.abs(dy)>Math.abs(dx)){
+        tabGestures.delete(e.pointerId);
+        return;
+      }
+      if(Math.abs(dx)<6||Math.abs(dx)<=Math.abs(dy))return;
+      gesture.dragging=true;
+      gesture.nav.classList.add("is-scrubbing");
+      try{gesture.nav.setPointerCapture(e.pointerId)}catch(_){}
+    }
+    gesture.index=moveTabLens(gesture,e.clientX);
+  },{capture:true,passive:true});
+  document.addEventListener("pointerup",e=>{
+    const gesture=tabGestures.get(e.pointerId);
+    if(!gesture)return;
+    tabGestures.delete(e.pointerId);
+    if(!gesture.dragging)return; // A tap keeps the regular React click.
+    gesture.index=moveTabLens(gesture,e.clientX);
+    const tabs=tabNodes(gesture.nav),target=tabs[gesture.index];
+    cleanupTabGesture(gesture);
+    // Pointer capture may synthesize a second trusted click after pointerup.
+    swipeClickGuard=gesture.nav;
+    if(target)target.click();
+    requestAnimationFrame(()=>{if(swipeClickGuard===gesture.nav)swipeClickGuard=null;});
+  },{capture:true,passive:true});
+  document.addEventListener("pointercancel",e=>{
+    const gesture=tabGestures.get(e.pointerId);
+    if(!gesture)return;
+    tabGestures.delete(e.pointerId);
+    if(gesture.dragging)cleanupTabGesture(gesture);
+  },{capture:true,passive:true});
+  document.addEventListener("click",e=>{
+    if(!swipeClickGuard||!e.isTrusted||!swipeClickGuard.contains(e.target))return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    swipeClickGuard=null;
+  },true);
+
   function start(){
     if(canvas || stopped || reduceMotion.matches || reduceTransparency.matches)return;
     const c=document.createElement("canvas");

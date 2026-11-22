@@ -74,6 +74,15 @@
    '<div class="v29-gallery-grid">'+thumbs+'</div>'+
    '<div class="v29-strength"><label for="v29-strength">背景图案强度</label><input id="v29-strength" type="range" min=".15" max="1" step=".05" value="'+strength+'"><output id="v29-strength-value"></output></div>';
   document.body.append(gallery);
+  // Native modal dialogs are top-layer elements; bind their buttons directly.
+  gallery.querySelectorAll("[data-v29-wallpaper]").forEach(button=>{
+    button.addEventListener("click",e=>{
+      e.stopPropagation();
+      wallpaper=allowed(THEMES.map(t=>t[0]),button.dataset.v29Wallpaper,"garden");
+      put("wallpaper",wallpaper);
+      updateThemeLayout();
+    });
+  });
   const repair=document.createElement("dialog");repair.id="v29-restore-dialog";repair.className="v29-wallpaper-dialog";
   repair.style.cssText="width:min(94vw,780px);height:min(92dvh,850px);padding:12px;display:none;flex-direction:column";
   repair.innerHTML='<div class="v29-dialog-title"><h2>安全恢复订阅与卡包</h2><button class="v29-close" type="button" data-v29-action="close-restore">×</button></div><iframe title="随手账本安全恢复" src="about:blank" style="width:100%;min-height:0;flex:1;border:0;background:#f2f0fa;border-radius:12px"></iframe>';

@@ -26,3 +26,12 @@ pnpm run build
 仓库现在包含 [私有 OAuth 后端](./auth-worker/README.md) 和 [浏览器授权桥接模块](./auth-client.js)。它采用 Cloudflare Worker + KV 保存加密 Refresh Token，网页只保存本设备随机会话凭证。未部署 Worker 前，原来的 Google Drive Token 登录方式保持可用。
 
 **部署前务必阅读后端目录的说明。** 需要自行配置 Worker、KV、Google OAuth 客户端重定向 URI 及 Cloudflare Secrets。请勿将 Client Secret、Refresh Token、加密密钥上传到 GitHub。
+
+## Liquid Glass Studio 风格界面
+
+- 视觉与技术参考：[iyinchao/liquid-glass-studio](https://github.com/iyinchao/liquid-glass-studio)（MIT License）。参考其超椭圆 SDF、平滑融合、菲涅尔边缘高光、色散及弹簧动效设计思路。
+- 实现为 `liquid-ledger.css` + `liquid-ledger.js`，保持已有 React 页面、Google Drive 同步、备份、会员和卡包业务逻辑不变。
+- 由于参考项目目前尚未实现玻璃形状中嵌入任意交互 DOM，本项目没有把账单按钮放入参考项目的 GPU 渲染器；改为前景原生玻璃组件与背后独立、不可交互的 WebGL2 SDF 装饰层。
+- 支持浅色与深色主题、双层按钮与玻璃面板、触摸弹性反馈、减少动态效果设置和不支持 WebGL2 时的 CSS 回退。
+- 两个原有入口 `index.html` / `cloud.html` 都会加载同一份玻璃样式和交互脚本；Service Worker 缓存这些资源用于离线打开。
+- 没有新增第三方运行时脚本或 Google OAuth 密钥；这两个 UI 文件不读写账目数据。

@@ -75,18 +75,26 @@
   function tabNodes(nav){
     return [...nav.querySelectorAll('[role="tab"]')];
   }
-  function moveTabLens(gesture, clientX){
-    const nav=gesture.nav;
-    const tabs=tabNodes(nav);
+  function moveTabLens(gesture,clientX){
+    const nav=gesture.nav,tabs=tabNodes(nav);
     if(!tabs.length)return 0;
     const rect=nav.getBoundingClientRect();
-    const pad=parseFloat(getComputedStyle(nav).paddingLeft)||0;
-    const track=Math.max(1,nav.clientWidth-nav.clientLeft*2-pad*2);
-    const tabWidth=track/tabs.length;
-    const center=clientX-rect.left-nav.clientLeft-pad;
-    const offset=Math.min(tabWidth*(tabs.length-1),Math.max(0,center-tabWidth/2));
-    nav.style.setProperty("--lens-drag-x",offset.toFixed(2)+"px");
-    return Math.max(0,Math.min(tabs.length-1,Math.floor(Math.max(0,Math.min(track-0.01,center))/tabWidth)));
+    const first=tabs[0].getBoundingClientRect();
+    const last=tabs[tabs.length-1].getBoundingClientRect();
+    const firstCenter=first.left-rect.left+first.width/2;
+    const lastCenter=last.left-rect.left+last.width/2;
+    // Preserve the original grip point: the existing lens moves by the
+    // exact finger delta instead of jumping its centre underneath the finger.
+    const center=Math.max(firstCenter,Math.min(lastCenter,
+      gesture.startCenter+clientX-gesture.startX));
+    nav.style.setProperty("--lens-drag-x",(center-firstCenter).toFixed(2)+"px");
+    let nearest=0,best=Infinity;
+    for(let i=0;i<tabs.length;i++){
+      const box=tabs[i].getBoundingClientRect();
+      const distance=Math.abs(box.left-rect.left+box.width/2-center);
+      if(distance<best){best=distance;nearest=i;}
+    }
+    return nearest;
   }
   function cleanupTabGesture(gesture){
     gesture.nav.classList.remove("is-scrubbing");
@@ -105,9 +113,13 @@
     if(!tab)return;
     const nav=tab.closest(".view-tabs");
     if(!nav)return;
+    const tabs=tabNodes(nav);
+    const selected=tabs.find(item=>item.getAttribute("aria-selected")==="true")||tab;
+    const navRect=nav.getBoundingClientRect(),selectedRect=selected.getBoundingClientRect();
     tabGestures.set(e.pointerId,{
       pointerId:e.pointerId,nav,startX:e.clientX,startY:e.clientY,
-      dragging:false,index:tabNodes(nav).indexOf(tab)
+      startCenter:selectedRect.left-navRect.left+selectedRect.width/2,
+      dragging:false,index:tabs.indexOf(tab)
     });
   },{capture:true,passive:true});
   document.addEventListener("pointermove",e=>{

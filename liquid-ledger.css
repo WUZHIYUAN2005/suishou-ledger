@@ -423,3 +423,129 @@ body::before{
   border-radius:inherit;pointer-events:none;z-index:0;
   display:block;
 }
+
+
+/* ==============================================================
+   Single-rim controls · complete replacement overlay · 2026-11-22
+   Keep optical glass materials, but remove duplicate inner outlines.
+   Covers ALL TIME, top actions, month arrows, recent-bill action,
+   dock, search, plus/theme actions, and the menu sheet and its rows.
+   ============================================================== */
+:is(
+  .menu-trigger,
+  .cloud-trigger,
+  .month-arrow,
+  .time-switch,
+  .recent-panel .panel-heading .glass-button,
+  .dock > .glass-button,
+  .navigation-dialog .glass-button,
+  .menu-list > .glass-button
+){
+  border:1px solid var(--rim)!important;
+  box-shadow:
+    0 5px 16px var(--shadow),
+    inset 0 1px 1px var(--shine),
+    inset 0 -1px 2px var(--glass-darkedge)!important;
+}
+/* Optical highlights are retained on the ONE outer contour only. */
+:is(
+  .menu-trigger,
+  .cloud-trigger,
+  .month-arrow,
+  .time-switch,
+  .recent-panel .panel-heading .glass-button,
+  .dock > .glass-button,
+  .navigation-dialog .glass-button,
+  .menu-list > .glass-button
+)::before,
+:is(
+  .menu-trigger,
+  .cloud-trigger,
+  .month-arrow,
+  .time-switch,
+  .recent-panel .panel-heading .glass-button,
+  .dock > .glass-button,
+  .navigation-dialog .glass-button,
+  .menu-list > .glass-button
+)::after{content:none!important;display:none!important}
+:is(
+  .menu-trigger,
+  .cloud-trigger,
+  .month-arrow,
+  .time-switch,
+  .recent-panel .panel-heading .glass-button,
+  .dock > .glass-button,
+  .navigation-dialog .glass-button,
+  .menu-list > .glass-button
+) > .glass-face{
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+/* Month selector is its own single glass outline; arrows remain controls. */
+.month-shell{
+  border:1px solid var(--rim)!important;
+  box-shadow:0 4px 12px var(--shadow),inset 0 1px 1px var(--shine)!important;
+}
+/* All Time keeps its selected background, no extra inset outline. */
+.time-switch[aria-pressed="true"]{
+  background:var(--selected)!important;
+  color:var(--ink);
+}
+/* One outer dock rim, one rim around each distinct functional element. */
+.dock{
+  border:1px solid var(--rim)!important;
+  box-shadow:0 16px 42px var(--strong-shadow),inset 0 1px 1px var(--shine)!important;
+}
+.dock::before,.dock::after{display:none!important;content:none!important}
+.dock-search{
+  border:1px solid var(--rim)!important;
+  box-shadow:0 3px 10px rgba(39,65,108,.06),inset 0 1px 1px var(--shine)!important;
+}
+.dock-search::before,.dock-search::after{display:none!important;content:none!important}
+/* Menu dialog: remove the nested sheet-face perimeter and fake seam. */
+.navigation-dialog{
+  padding:0!important;
+  border:1px solid var(--rim)!important;
+  box-shadow:0 24px 70px var(--strong-shadow),inset 0 1px 1px var(--shine)!important;
+}
+.navigation-dialog::before,.navigation-dialog::after{content:none!important;display:none!important}
+.navigation-dialog > .sheet-face{
+  border:0!important;border-radius:inherit!important;
+  background:transparent!important;box-shadow:none!important;
+  padding:19px!important;
+}
+.navigation-dialog .menu-list .glass-button{
+  border-radius:19px;
+}
+.navigation-dialog .menu-list .glass-face{
+  border:0!important;box-shadow:none!important;background:transparent!important;
+}
+/* Consistent appearance for the account management dialogs as well. */
+.sheet:not(.navigation-dialog){
+  padding:0!important;
+}
+.sheet:not(.navigation-dialog) > .sheet-face{
+  border:0!important;border-radius:inherit!important;
+  box-shadow:none!important;
+}
+/* The navigation is one base and ONE lens. No other tab owns a glass rim. */
+.view-tabs .active-lens{
+  display:block;
+  opacity:1!important;
+  visibility:visible!important;
+  z-index:0;
+  pointer-events:none;
+  transform:translate3d(var(--lens-drag-x, calc(var(--selected-tab) * 100%)),0,0);
+  transition:transform .38s cubic-bezier(.2,.75,.2,1)!important;
+  background:
+    radial-gradient(ellipse 120% 100% at 30% 2%,rgba(255,255,255,.58),transparent 65%),
+    var(--selected);
+  border:1px solid var(--rim);
+  box-shadow:0 4px 12px var(--shadow),inset 0 1px 1px var(--shine);
+}
+.view-tabs.is-scrubbing .active-lens{transition:none!important}
+.view-tabs[data-optics="webgl"] .active-lens{display:none!important}
+/* The WebGL2 renderer draws the base and persistent selected lens.
+   A CSS lens is only used when the browser cannot run the shader. */
+

@@ -219,6 +219,7 @@ function install(nav){
   raf=requestAnimationFrame(frame);
   if(document.visibilityState==="hidden"||t-last<30||!nav.isConnected)return;
   last=t;
+  try{
   const rect=nav.getBoundingClientRect();
   if(!rect.width||!rect.height||rect.bottom<0||rect.top>innerHeight)return;
   resize(rect);
@@ -251,6 +252,10 @@ function install(nav){
   gl.uniform1f(gu.ior,IOR);
   gl.uniform1f(gu.dark,dark?1:0);
   gl.drawArrays(gl.TRIANGLES,0,3);
+  }catch(error){
+   console.warn("Navigation refraction stopped; restoring single-surface fallback",error);
+   cancelAnimationFrame(raf);nav.dataset.optics="fallback";canvas.remove();
+  }
  }
  canvas.addEventListener("webglcontextlost",e=>{
   e.preventDefault();cancelAnimationFrame(raf);nav.dataset.optics="fallback";canvas.remove();

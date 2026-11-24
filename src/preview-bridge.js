@@ -375,6 +375,8 @@ function bootPreviewBridge(){
     #content .ledger-day-filter input{width:auto;max-width:100%;min-width:0;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:7px 9px}
     #content .ledger-day-filter button{min-height:34px;padding:6px 10px;font-size:13px}
     #content .ledger-day-summary{margin-top:14px}
+    #content .ledger-day-column{min-width:0}
+    html[data-layout="desktop"] #content .page:has(>.overview-top) > .ledger-day-column{grid-column:2;grid-row:2;min-width:0}
     #content .ledger-day-summary .section-head{flex-wrap:wrap}
     #content .ledger-day-totals{display:grid;gap:0}
     #content .ledger-day-currency{display:grid;grid-template-columns:minmax(46px,.65fr) minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
@@ -420,7 +422,7 @@ function bootPreviewBridge(){
       const bar=document.createElement("div");
       bar.className="ledger-day-filter";
       bar.innerHTML=`<label>精确日期<input aria-label="按年月日筛选" id="ledger-date-filter" type="date" value="${safe(selectedDay||localDay())}"></label><button type="button" class="glass" id="ledger-date-apply">按日筛选</button>${selectedDay?'<button type="button" class="glass" id="ledger-date-clear">恢复月份</button>':""}<span>${selectedDay?"当前：按日":"当前："+(S.all?"全部时间":"按月")}</span>`;
-      anchor.after(bar);
+      if(S.tab==="overview")anchor.append(bar);else anchor.after(bar);
       bar.querySelector("input").addEventListener("change",e=>selectDay(e.target.value));
       bar.querySelector("#ledger-date-apply").addEventListener("click",()=>selectDay(bar.querySelector("input").value));
       bar.querySelector("#ledger-date-clear")?.addEventListener("click",()=>{selectedDay=null;S.all=false;updateView();});
@@ -442,7 +444,9 @@ function bootPreviewBridge(){
     const summary=document.createElement("section");
     summary.className="panel ledger-day-summary";
     summary.innerHTML=`<div class="section-head"><h2>${safe(label)}收支汇总</h2><span class="subtext">${safe(date)} · ${records.length} 笔</span></div><div class="ledger-day-totals">${[...dailyTotals(records)].map(([code,total])=>`<div class="ledger-day-currency"><strong>${safe(code)}</strong><div class="ledger-day-number"><span>收入</span><strong class="income">${safe(fmt(total.income,code))}</strong></div><div class="ledger-day-number"><span>支出</span><strong class="expense">${safe(fmt(total.expense,code))}</strong></div></div>`).join("")}</div>`;
-    panel.after(summary);
+    const column=document.createElement("div");
+    column.className="ledger-day-column";
+    panel.before(column);column.append(panel,summary);
   }
   // Switching to monthly/all-time mode clears the exact-day filter before the
   // original navigation handler runs. Preserve the existing calendar controls.

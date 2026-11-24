@@ -370,10 +370,12 @@ function bootPreviewBridge(){
   // Date filtering and daily totals are view state only; never alter ledger data.
   const enhancements=document.createElement("style");
   enhancements.textContent=`
-    #content .ledger-day-filter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;color:var(--muted);font-size:13px}
-    #content .ledger-day-filter label{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
-    #content .ledger-day-filter input{width:auto;max-width:100%;min-width:0;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:7px 9px}
-    #content .ledger-day-filter button{min-height:34px;padding:6px 10px;font-size:13px}
+    #content .month-shell .ledger-date-trigger{appearance:none;-webkit-appearance:none;background:transparent;border:0;box-shadow:none;color:inherit;font-family:inherit;font-size:inherit;font-size:17px;font-weight:690;line-height:inherit;padding:0;min-height:0;min-width:0;align-self:stretch;display:flex;align-items:center;justify-content:center;white-space:nowrap;cursor:pointer}
+    #content .month-shell .ledger-date-trigger:focus-visible{outline:1px solid var(--accent);outline-offset:-2px;border-radius:10px}
+    #content .month-shell .ledger-date-trigger[data-day]{font-size:14px}
+    #ledger-date-form input[type="date"]{box-sizing:border-box;min-width:0;max-width:100%;width:100%;font:inherit}
+    #ledger-date-form .form-actions{flex-wrap:wrap}
+    #ledger-date-form .form-actions>*{min-width:0}
     #content .ledger-day-summary{margin-top:14px}
     #content .ledger-day-column{min-width:0}
     html[data-layout="desktop"] #content .page:has(>.overview-top) > .ledger-day-column{grid-column:2;grid-row:2;min-width:0}
@@ -397,6 +399,19 @@ function bootPreviewBridge(){
     if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return;
     selectedDay=value;S.year=Number(value.slice(0,4));S.month=Number(value.slice(5,7));S.all=false;updateView();
   }
+  function openDatePicker(){
+    const date=selectedDay||localDay();
+    modal("选择日期",`<form id="ledger-date-form">
+      ${field("精确到年月日",input("date",date,"date","id='ledger-date-filter' required"))}
+      <p class="subtext">按日筛选账单与统计；上下月箭头仍可切换月份。</p>
+      <div class="form-actions"><button type="button" class="glass" id="ledger-date-month">恢复月份</button><button type="button" class="glass" id="ledger-date-today">今天</button><button type="submit" class="glass">按日筛选</button></div>
+    </form>`);
+    const form=$("ledger-date-form");
+    const apply=value=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return;view.closeModal();selectDay(value);};
+    form.addEventListener("submit",e=>{e.preventDefault();apply(form.elements.date.value);});
+    $("ledger-date-today").addEventListener("click",()=>apply(localDay()));
+    $("ledger-date-month").addEventListener("click",()=>{view.closeModal();selectedDay=null;S.all=false;updateView();});
+  }
   function dailyTotals(records){
     const totals=new Map();
     for(const r of records){
@@ -417,15 +432,16 @@ function bootPreviewBridge(){
     const page=$("content")?.querySelector(".page");
     if(!page||page.dataset.dailyEnhanced)return;
     page.dataset.dailyEnhanced="true";
-    const anchor=page.querySelector(S.tab==="overview"?".overview-top":".page-heading");
-    if(anchor){
-      const bar=document.createElement("div");
-      bar.className="ledger-day-filter";
-      bar.innerHTML=`<label>精确日期<input aria-label="按年月日筛选" id="ledger-date-filter" type="date" value="${safe(selectedDay||localDay())}"></label><button type="button" class="glass" id="ledger-date-apply">按日筛选</button>${selectedDay?'<button type="button" class="glass" id="ledger-date-clear">恢复月份</button>':""}<span>${selectedDay?"当前：按日":"当前："+(S.all?"全部时间":"按月")}</span>`;
-      if(S.tab==="overview")anchor.append(bar);else anchor.after(bar);
-      bar.querySelector("input").addEventListener("change",e=>selectDay(e.target.value));
-      bar.querySelector("#ledger-date-apply").addEventListener("click",()=>selectDay(bar.querySelector("input").value));
-      bar.querySelector("#ledger-date-clear")?.addEventListener("click",()=>{selectedDay=null;S.all=false;updateView();});
+    const monthText=page.querySelector(".range-picker .month-shell .month-text");
+    if(monthText){
+      const trigger=document.createElement("button");
+      trigger.type="button";trigger.className="month-text ledger-date-trigger";
+      trigger.setAttribute("aria-label","精确日期筛选");
+      trigger.title=selectedDay?selectedDay:"点击选择具体日期";
+      trigger.textContent=selectedDay?selectedDay.slice(5).replace("-","/"):monthText.textContent;
+      if(selectedDay)trigger.dataset.day=selectedDay;
+      trigger.addEventListener("click",openDatePicker);
+      monthText.replaceWith(trigger);
     }
     if(selectedDay){
       const period=$("desktop-period");

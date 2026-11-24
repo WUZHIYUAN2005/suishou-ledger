@@ -214,6 +214,28 @@ async function smokePreviewBusiness(){
    assert.deepEqual(await visualSnapshot(browser,base+entry,layout),original,`${layout} visual mismatch`);
   }
 
+  // Verify date selection with both viewport sizes without weakening baseline assertions.
+  for(const mobile of [false,true]){
+   const datePage=await browser.newPage({viewport:mobile?{width:390,height:844}:{width:1440,height:900},hasTouch:mobile,isMobile:mobile});
+   try{
+    await datePage.goto(base+"cloud.html",{waitUntil:"domcontentloaded"});
+    await datePage.waitForFunction(()=>!!window.__suishouBusinessBridge);
+    const trigger=datePage.getByRole("button",{name:"精确日期筛选"});
+    assert.equal(await trigger.count(),1);
+    assert.equal(await datePage.locator(".ledger-day-filter").count(),0,"Date chooser must not add a row");
+    await trigger.click();
+    const dialog=datePage.getByRole("dialog",{name:"选择日期"});
+    await dialog.locator('input[type=date]').fill("2026-10-15");
+    assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),"Date dialog must fit its viewport");
+    await dialog.getByRole("button",{name:"按日筛选"}).click();
+    assert.equal(await trigger.textContent(),"10/15");
+    assert.match(await datePage.locator(".ledger-day-summary").innerText(),/2026-10-15/);
+    await trigger.click();
+    await dialog.getByRole("button",{name:"恢复月份"}).click();
+    assert.equal(await trigger.textContent(),"10月");
+   }finally{await datePage.close()}
+  }
+
   await page.addInitScript(()=>{
    window.google={accounts:{oauth2:{
     initTokenClient:({callback})=>({requestAccessToken:()=>callback({access_token:'local-test',expires_in:3600})}),

@@ -29,6 +29,9 @@ function bootPreviewBridge(){
   S.currency=initial.statsCurrency||"CNY";
   const today=new Date();
   S.year=today.getFullYear();S.month=today.getMonth()+1;
+  let selectedDay=null;
+  const localDay=()=>localDatetime().slice(0,10);
+  const dayOf=(record)=>record.occurredAt.slice(0,10);
   let coverUrl="",coverId="";
   async function loadCover(id){
     if(coverUrl){URL.revokeObjectURL(coverUrl);coverUrl="";}
@@ -45,7 +48,7 @@ function bootPreviewBridge(){
   function updateView(){
     const snap=getSnapshot();
     S.currency=snap.statsCurrency||S.currency||"CNY";
-    S.records=snap.records.filter(r=>r.currency===S.currency).map(r=>({
+    S.records=snap.records.filter(r=>r.currency===S.currency&&(!selectedDay||dayOf(r)===selectedDay)).map(r=>({
       id:r.id,title:r.name,category:r.category,kind:r.type,
       value:amount(r.amountMinor,r.currency),currency:r.currency,
       year:Number(r.occurredAt.slice(0,4)),ym:r.occurredAt.slice(0,7),
@@ -364,9 +367,148 @@ function bootPreviewBridge(){
     const target=e.target.closest?.(".sub-row[data-real],.wallet-card[data-real]");
     if(target&&(e.key==="Enter"||e.key===" ")){e.preventDefault();target.click();}
   });
+  // Date filtering and daily totals are view state only; never alter ledger data.
+  const enhancements=document.createElement("style");
+  enhancements.textContent=`
+    #content .ledger-day-filter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;color:var(--muted);font-size:13px}
+    #content .ledger-day-filter label{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+    #content .ledger-day-filter input{width:auto;max-width:100%;min-width:0;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:7px 9px}
+    #content .ledger-day-filter button{min-height:34px;padding:6px 10px;font-size:13px}
+    #content .ledger-day-summary{margin-top:14px}
+    #content .ledger-day-summary .section-head{flex-wrap:wrap}
+    #content .ledger-day-totals{display:grid;gap:0}
+    #content .ledger-day-currency{display:grid;grid-template-columns:minmax(46px,.65fr) minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+    #content .ledger-day-currency:first-child{border-top:0}
+    #content .ledger-day-number{display:grid;gap:3px;min-width:0}
+    #content .ledger-day-number strong{font-size:clamp(15px,2vw,20px);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+    #content .ledger-day-number span{font-size:12px;color:var(--muted)}
+    html[data-layout="desktop"] .desktop-side[data-group-lens] .desktop-links{position:relative;isolation:isolate}
+    html[data-layout="desktop"] .desktop-side[data-group-lens] .desktop-link{position:relative;z-index:1}
+    html[data-layout="desktop"] .desktop-side[data-group-lens] .desktop-link:hover,
+    html[data-layout="desktop"] .desktop-side[data-group-lens] .desktop-link[aria-current="page"]{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
+    html[data-layout="desktop"] .desktop-side[data-group-lens] .ledger-side-lens{pointer-events:none;position:absolute;z-index:0;left:0;top:0;width:100%;height:39px;opacity:0;border-radius:13px;border:1px solid var(--line);background:linear-gradient(125deg,rgba(227,235,255,.21),rgba(163,181,230,.12)),var(--surface);box-shadow:0 3px 12px rgba(8,15,45,.12),inset 0 1px 1px rgba(255,255,255,.28);transition:transform .32s cubic-bezier(.2,.8,.2,1),height .32s cubic-bezier(.2,.8,.2,1),opacity .19s ease}
+    @media(prefers-reduced-motion:reduce){html[data-layout="desktop"] .desktop-side[data-group-lens] .ledger-side-lens{transition:none!important}}
+  `;
+  document.head.append(enhancements);
+
+  function selectDay(value){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return;
+    selectedDay=value;S.year=Number(value.slice(0,4));S.month=Number(value.slice(5,7));S.all=false;updateView();
+  }
+  function dailyTotals(records){
+    const totals=new Map();
+    for(const r of records){
+      if(!totals.has(r.currency))totals.set(r.currency,{income:0,expense:0});
+      const sum=totals.get(r.currency);
+      if(r.type==="income"||r.type==="expense")sum[r.type]+=r.amountMinor;
+    }
+    if(!totals.size)totals.set(S.currency,{income:0,expense:0});
+    return totals;
+  }
+  function dailyRow(r){
+    const income=r.type==="income";
+    const time=r.occurredAt.slice(11,16);
+    return `<button type="button" class="bill-row" data-action="detail:${safe(r.id)}"><span class="bill-icon">${safe(getCategoryInfo(r.type,r.category).icon)}</span><span class="bill-info"><b>${safe(r.name)}</b><span>${safe(time)} · ${safe(r.category)} · ${safe(r.currency)}</span></span><strong class="bill-value ${income?"income":""}">${income?"+":"−"}${safe(fmt(r.amountMinor,r.currency))}</strong></button>`;
+  }
+  function enhanceDates(){
+    if(!["overview","bills","stats"].includes(S.tab))return;
+    const page=$("content")?.querySelector(".page");
+    if(!page||page.dataset.dailyEnhanced)return;
+    page.dataset.dailyEnhanced="true";
+    const anchor=page.querySelector(S.tab==="overview"?".overview-top":".page-heading");
+    if(anchor){
+      const bar=document.createElement("div");
+      bar.className="ledger-day-filter";
+      bar.innerHTML=`<label>精确日期<input aria-label="按年月日筛选" id="ledger-date-filter" type="date" value="${safe(selectedDay||localDay())}"></label><button type="button" class="glass" id="ledger-date-apply">按日筛选</button>${selectedDay?'<button type="button" class="glass" id="ledger-date-clear">恢复月份</button>':""}<span>${selectedDay?"当前：按日":"当前："+(S.all?"全部时间":"按月")}</span>`;
+      anchor.after(bar);
+      bar.querySelector("input").addEventListener("change",e=>selectDay(e.target.value));
+      bar.querySelector("#ledger-date-apply").addEventListener("click",()=>selectDay(bar.querySelector("input").value));
+      bar.querySelector("#ledger-date-clear")?.addEventListener("click",()=>{selectedDay=null;S.all=false;updateView();});
+    }
+    if(selectedDay){
+      const period=$("desktop-period");
+      if(period)period.textContent=selectedDay.replace(/^(\d{4})-(\d{2})-(\d{2})$/,"$1 年 $2 月 $3 日");
+    }
+    if(S.tab!=="overview")return;
+    const date=selectedDay||localDay(),isToday=date===localDay();
+    const label=isToday?"今日":formatDate(date);
+    const records=getSnapshot().records.filter(r=>dayOf(r)===date).sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt));
+    const list=page.querySelector(".bill-list");
+    const panel=list?.closest(".panel");
+    if(!list||!panel)return;
+    const head=panel.querySelector(".section-head h2");
+    if(head)head.textContent="最近账单 · "+label;
+    list.innerHTML=records.map(dailyRow).join("")||'<div class="empty">该日暂无账单记录</div>';
+    const summary=document.createElement("section");
+    summary.className="panel ledger-day-summary";
+    summary.innerHTML=`<div class="section-head"><h2>${safe(label)}收支汇总</h2><span class="subtext">${safe(date)} · ${records.length} 笔</span></div><div class="ledger-day-totals">${[...dailyTotals(records)].map(([code,total])=>`<div class="ledger-day-currency"><strong>${safe(code)}</strong><div class="ledger-day-number"><span>收入</span><strong class="income">${safe(fmt(total.income,code))}</strong></div><div class="ledger-day-number"><span>支出</span><strong class="expense">${safe(fmt(total.expense,code))}</strong></div></div>`).join("")}</div>`;
+    panel.after(summary);
+  }
+  // Switching to monthly/all-time mode clears the exact-day filter before the
+  // original navigation handler runs. Preserve the existing calendar controls.
+  document.addEventListener("click",e=>{
+    const action=e.target.closest?.("[data-action]")?.dataset.action;
+    if(selectedDay&&(action==="all"||action?.startsWith("month:"))){
+      selectedDay=null;updateView();
+    }
+  },true);
+  let lastLocalDay=localDay();
+  function refreshNewDay(){
+    const day=localDay();
+    if(day!==lastLocalDay){lastLocalDay=day;if(!selectedDay)updateView();}
+  }
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshNewDay();});
+  window.addEventListener("focus",refreshNewDay);
+  setInterval(refreshNewDay,60000);
+
+  // One optical highlight per desktop sidebar group. Move within a group;
+  // when crossing groups, fade the old lens and reveal the new one in place.
+  function setupGroupedSidebar(){
+    const side=document.querySelector(".desktop-side");
+    if(!side)return ()=>{};
+    const groups=[...side.querySelectorAll(":scope > .desktop-links")];
+    if(!groups.length)return ()=>{};
+    const lenses=groups.map(group=>{
+      const lens=document.createElement("span");lens.className="ledger-side-lens";lens.setAttribute("aria-hidden","true");group.prepend(lens);return lens;
+    });
+    side.dataset.groupLens="true";
+    let currentGroup=-1,hovered=null,focused=null,lastTarget=null;
+    const selected=()=>side.querySelector('[data-side-view][aria-current="page"]');
+    function paint(target){
+      const group=target?.closest(".desktop-links"),index=groups.indexOf(group);
+      if(index<0||!target.offsetHeight){lenses.forEach(l=>l.style.opacity="0");currentGroup=-1;lastTarget=null;return;}
+      const lens=lenses[index],cross=index!==currentGroup;
+      if(cross){
+        lenses.forEach((l,i)=>{if(i!==index)l.style.opacity="0";});
+        // Reposition the hidden lens without any movement across the gap.
+        lens.style.transition="none";lens.style.opacity="0";
+      }
+      lens.style.transform="translateY("+target.offsetTop+"px)";
+      lens.style.height=target.offsetHeight+"px";
+      if(cross){void lens.offsetHeight;lens.style.removeProperty("transition");}
+      lens.style.opacity="1";currentGroup=index;lastTarget=target;
+    }
+    function refresh(){paint(hovered||focused||selected());}
+    side.addEventListener("pointerover",e=>{
+      if(e.pointerType==="touch")return;
+      const target=e.target.closest?.(".desktop-links .desktop-link");
+      if(target&&side.contains(target)&&target!==hovered){hovered=target;refresh();}
+    });
+    side.addEventListener("pointerleave",()=>{hovered=null;refresh();});
+    side.addEventListener("focusin",e=>{focused=e.target.closest?.(".desktop-links .desktop-link")||null;refresh();});
+    side.addEventListener("focusout",e=>{if(!side.contains(e.relatedTarget)){focused=null;refresh();}});
+    window.addEventListener("resize",refresh,{passive:true});
+    window.addEventListener("suishou-layout-change",refresh);
+    if(typeof ResizeObserver==="function"){const observer=new ResizeObserver(refresh);groups.forEach(g=>observer.observe(g));}
+    refresh();
+    return ()=>{const target=hovered||focused||selected();if(target!==lastTarget)paint(target);};
+  }
+  const refreshSidebar=setupGroupedSidebar();
+
   // Keep the original v29 DOM, typography and glass CSS. Only attach click
   // targets to existing rows; do not wrap them in new glass cards.
   function attachRowActions(){
+    enhanceDates();refreshSidebar();
     if(S.tab==="stats"){
       const sel=document.querySelector("#content select[aria-label='统计币种']");
       if(sel){sel.innerHTML=opts(CURRENCIES.map(c=>[c.code,c.name+" · "+c.code]),S.currency);sel.id="real-stat-page-currency";}

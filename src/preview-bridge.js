@@ -32,6 +32,7 @@ function bootPreviewBridge(){
   let selectedDay=null;
   const localDay=()=>localDatetime().slice(0,10);
   const dayOf=(record)=>record.occurredAt.slice(0,10);
+  const recordDateLabel=(record)=>record.occurredAt.slice(5,16).replace("T"," ");
   let coverUrl="",coverId="";
   async function loadCover(id){
     if(coverUrl){URL.revokeObjectURL(coverUrl);coverUrl="";}
@@ -52,7 +53,7 @@ function bootPreviewBridge(){
       id:r.id,title:r.name,category:r.category,kind:r.type,
       value:amount(r.amountMinor,r.currency),currency:r.currency,
       year:Number(r.occurredAt.slice(0,4)),ym:r.occurredAt.slice(0,7),
-      date:r.occurredAt.slice(5,7)+"-"+r.occurredAt.slice(8,10)+" "+r.occurredAt.slice(11,16),
+      date:recordDateLabel(r),
       icon:getCategoryInfo(r.type,r.category).icon
     })).sort((a,b)=>b.ym.localeCompare(a.ym)||b.date.localeCompare(a.date));
     S.subscriptions=snap.memberships.map(m=>({
@@ -451,12 +452,15 @@ function bootPreviewBridge(){
     const date=selectedDay||localDay(),isToday=date===localDay();
     const label=isToday?"今日":formatDate(date);
     const records=getSnapshot().records.filter(r=>dayOf(r)===date).sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt));
+    const query=S.query.toLowerCase();
+    const matches=query ? records.filter(r=>[r.name,r.category,recordDateLabel(r)].some(value=>value.toLowerCase().includes(query))) : records;
     const list=page.querySelector(".bill-list");
     const panel=list?.closest(".panel");
     if(!list||!panel)return;
     const head=panel.querySelector(".section-head h2");
     if(head)head.textContent="最近账单 · "+label;
-    list.innerHTML=records.map(dailyRow).join("")||'<div class="empty">该日暂无账单记录</div>';
+    const emptyMessage=records.length ? "没有符合条件的记录" : "该日暂无账单记录";
+    list.innerHTML=matches.map(dailyRow).join("")||`<div class="empty">${emptyMessage}</div>`;
     const summary=document.createElement("section");
     summary.className="panel ledger-day-summary";
     summary.innerHTML=`<div class="section-head"><h2>${safe(label)}收支汇总</h2><span class="subtext">${safe(date)} · ${records.length} 笔</span></div><div class="ledger-day-totals">${[...dailyTotals(records)].map(([code,total])=>`<div class="ledger-day-currency"><strong>${safe(code)}</strong><div class="ledger-day-number"><span>收入</span><strong class="income">${safe(fmt(total.income,code))}</strong></div><div class="ledger-day-number"><span>支出</span><strong class="expense">${safe(fmt(total.expense,code))}</strong></div></div>`).join("")}</div>`;

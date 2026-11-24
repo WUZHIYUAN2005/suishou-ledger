@@ -214,10 +214,19 @@ async function smokePreviewBusiness(){
    assert.deepEqual(await visualSnapshot(browser,base+entry,layout),original,`${layout} visual mismatch`);
   }
 
-  // Verify date selection with both viewport sizes without weakening baseline assertions.
+  const searchRecords=[
+   {id:'search-cny',name:'Morning Coffee',currency:'CNY',category:'餐饮美食',occurredAt:'2026-10-15T09:00',amountMinor:125},
+   {id:'search-usd',name:'Night Train',currency:'USD',category:'交通出行',occurredAt:'2026-10-15T21:30',amountMinor:0},
+   {id:'search-other-day',name:'Night Train (another day)',currency:'CNY',category:'交通出行',occurredAt:'2026-10-16T21:30',amountMinor:350},
+  ].map(record=>({...record,type:'expense'}));
+
+  // Verify date selection and search together at desktop and phone widths.
   for(const mobile of [false,true]){
    const datePage=await browser.newPage({viewport:mobile?{width:390,height:844}:{width:1440,height:900},hasTouch:mobile,isMobile:mobile});
    try{
+    await datePage.addInitScript(records=>{
+     localStorage.setItem('suishou-ledger.records.v1',JSON.stringify(records));
+    },searchRecords);
     await datePage.goto(base+"cloud.html",{waitUntil:"domcontentloaded"});
     await datePage.waitForFunction(()=>!!window.__suishouBusinessBridge);
     const trigger=datePage.getByRole("button",{name:"精确日期筛选"});
@@ -229,7 +238,23 @@ async function smokePreviewBusiness(){
     assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),"Date dialog must fit its viewport");
     await dialog.getByRole("button",{name:"按日筛选"}).click();
     assert.equal(await trigger.textContent(),"10/15");
-    assert.match(await datePage.locator(".ledger-day-summary").innerText(),/2026-10-15/);
+    const summary=datePage.locator(".ledger-day-summary");
+    const dayTotals=await summary.innerText();
+    assert.match(dayTotals,/2026-10-15 · 2 笔/);
+    const search=datePage.locator('#search');
+    const list=datePage.locator('#content .bill-list');
+    const titles=()=>list.locator('.bill-info b').allTextContents();
+    assert.deepEqual(await titles(),['Night Train','Morning Coffee']);
+    for(const query of ['NIGHT TRAIN','交通出行','10-15 21:30']){
+     await search.fill(query);
+     assert.deepEqual(await titles(),['Night Train'],`Overview search for ${query} must stay within the selected date`);
+     assert.equal(await summary.innerText(),dayTotals,'The summary must still cover the full day');
+    }
+    await search.fill('no matching record');
+    assert.deepEqual(await titles(),[]);
+    assert.match(await list.innerText(),/没有符合条件的记录/);
+    await search.fill('');
+    assert.deepEqual(await titles(),['Night Train','Morning Coffee']);
     await trigger.click();
     await dialog.getByRole("button",{name:"恢复月份"}).click();
     assert.equal(await trigger.textContent(),"10月");
